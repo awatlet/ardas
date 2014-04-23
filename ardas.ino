@@ -1,10 +1,6 @@
 #include <Time.h>
 
-<<<<<<< HEAD
 String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, parameter;
-=======
-String VERsiON, e0, e1, e2, ri, sd, rv, sr, si,ss, parameter;
->>>>>>> 7ab0cd2541090a3c341887c3ac6ba95674eec0cb
 char EOL;
 int station, netid, integration_period, echo;
   
@@ -25,7 +21,6 @@ void setup () {
 	integration_period = 60;
 	echo = 1;
 
-<<<<<<< HEAD
 	Serial.begin (9600);     // opens serial port, sets data rate to 9600 bps
 	Serial.flush ();
 }
@@ -84,7 +79,7 @@ if (command == e0) { // No Echo
 	  	Serial.print("!SR ");
 	  	Serial.println(integration_period);
 	}
-} else if (command == si) {  // SET das netid
+} else if (command == si) {  // SET das netid
 	if(s.length () == 8) {
 		// TODO: check parameter type
 	  	parameter = s.substring (4,7);
@@ -109,131 +104,3 @@ if (command == e0) { // No Echo
 	Serial.println ("Unknown command\n\r");
   }
 }
-=======
-void setup() {
-  VERsiON = String("ARDAS 0.1");
-  e0 = String("#e0");
-  e1 = String("#e1");
-  e2 = String("#e2");
-  ri = String("#ri");
-  sd = String("#sd");
-  rv = String("#rv");
-  sr = String("#sr");
-  si = String("#si");
-  ss = String("#ss");
-  EOL = '\r';
-  station = 1;
-  netid = 255;
-  integration_period = 60;
-  echo = 1;
-
-  Serial.begin(9600);     // opens serial port, sets data rate to 9600 bps
-  Serial.flush();
-}
-
-void loop() {
-  char c;
-  String s;
-  String command;
-  // send data only when you receive data:
-  do {
-    if (Serial.available() > 0) {
-      // read the incoming byte:
-      c = Serial.read();
-      s += c;
-    }
-  } 
-  while(c != EOL);
-  //Serial.println(s);   
-
-  command = s.substring(0,3);
-  if(command == e0){ // No Echo
-    Serial.println("\n\r!E0[Echo disabled]\n\r");
-    echo = 0;
-  }
-  else if(command == e1){ //  Only Data
-    Serial.println("!E1\n\r");
-    echo = 1;
-  }
-  else if(command == e2){ //  Data + Time
-    Serial.println("!E2\n\r");
-    echo = 2;
-  }
-  else if(command == ri){ //  Data + Time
-
-    Serial.println("!RI Station:" + String(station) +" DasNo:" + String(netid) + "Integration:" + String(integration_period));
-  }
-  else if(command == sd){  // SET date
-    //setTime(1396944974.452954);
-    Serial.print("!SD");
-    Serial.print(" ");
-    Serial.print(year());
-    Serial.print(" ");
-    Serial.print(month());
-    Serial.print(" ");
-    Serial.print(day());
-    Serial.print(" ");
-    Serial.print(minute());
-    Serial.print(" ");
-    Serial.print(second());
-    Serial.println();
-  }
-  else if(command == rv){
-    Serial.println("!RV " + VERsiON);
-  }
-  else if(command == sr){  // SET integration period
-    if(s.length() == 9){
-      // TODO: check parameter type
-      parameter = s.substring(4,8);
-      integration_period = parameter.toInt();
-      Serial.print("!SR ");
-      Serial.println(integration_period);
-    }
-    else{
-      Serial.print("!SR ");
-      Serial.println(integration_period);
-    }
-  }
-  
-  else if(command == si){
-    if(s.length() == 8){
-      // TODO: check parameter type
-      parameter = s.substring(4,7);
-      netid = parameter.toInt();
-      Serial.print("!SI ");
-      Serial.println(netid);
-    }
-    else{
-       Serial.print("!SI ");
-       Serial.println(netid);
-    }
-  }
-  
-  /*
-  else if(command == ss){
-    if(s.length() == 9){
-      parameter = s.substring(4, 8);
-      station = parameter.toInt();
-      Serial.print("!ss ");
-      Serial.println(station);    
-    }
-   else{
-      Serial.print("!ss ");
-      Serial.println(station);
-   }
-  }
-  */
-  else{
-    Serial.println("Unknown command\n\r");
-  }
-
-}
-
-
-
-
-
-
-
-
->>>>>>> 7ab0cd2541090a3c341887c3ac6ba95674eec0cb
