@@ -119,12 +119,12 @@ void loop () {
 		if (s.length () == 9) {
 			parameter = s.substring (4, 8);
 		  	station = parameter.toInt ();
+		  	EEPROM.write (0, station);
 		  	Serial.print ("!SS ");
-		  	Serial.println (station);    
+		  	Serial.println (station); 	  	   
 		} 
 		else {
-		  	Serial.print ("!SS ");
-		  	Serial.println (station);
+		  	Serial.print ("!SS value error");
 	    }
 	} 
 	else {
