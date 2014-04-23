@@ -69,7 +69,7 @@ void loop () {
 		echo = 2;
 	} 
 	else if (command == ri) { //  Data + Time
-		Serial.println("!RI Station:" + String(station) +" DasNo:" + String(netid) + "Integration:" + String(integration_period));
+		Serial.println("!RI Station: " + String(station) +" DasNo: " + String(netid) + " Integration: " + String(integration_period));
 	} 
 	else if (command == sd) {  // SET date
 		//setTime(1396944974.452954);
