@@ -1,9 +1,9 @@
 #include <Time.h>
 #include <EEPROM.h>
 
-String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, parameter;
+String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
 char EOL;
-int station, netid, integration_period;
+int station, netid, integration_period, nb_inst;
 int echo = 1;
   
 void read_config_or_set_default () {
@@ -19,6 +19,37 @@ void read_config_or_set_default () {
 	if (integration_period == 0) {
 		integration_period = 60;
 	}
+	nb_inst = EEPROM.read (3);
+	if ( nb_inst == 0) {
+		nb_inst = 4;
+	}
+}
+
+void reconfig (String s) {
+	String parameter1, parameter2, parameter3, parameter4;
+	parameter1 = s.substring (4, 8);
+	parameter2 = s.substring (9, 12);
+	parameter3 = s.substring (13, 17);
+	parameter4 = s.substring (18, 19);
+
+	station = parameter1.toInt ();
+	netid = parameter2.toInt ();
+	integration_period = parameter3.toInt ();
+	nb_inst = parameter4.toInt ();
+
+	EEPROM.write (0, station);
+	EEPROM.write (1, station);
+	EEPROM.write (2, station);
+	EEPROM.write (3, station);
+	delay(100);
+	Serial.print ("!ZR ");
+	Serial.print (station);
+	Serial.print (" ");
+	Serial.print (netid);
+	Serial.print (" ");
+	Serial.print (integration_period);
+	Serial.print (" ");
+	Serial.println (nb_inst);
 }
 
 
@@ -33,6 +64,7 @@ void setup () {
 	sr = String ("#SR");
 	si = String ("#SI");
 	ss = String ("#SS");
+	zr = String ("#ZR");
 	EOL = '\r';
 	read_config_or_set_default ();
 	
@@ -129,6 +161,11 @@ void loop () {
 		  	Serial.println(integration_period);
 		}
 	} 
+	else if (command == zr) {
+		if (s.length () == 20) {
+			reconfig (s);
+		}
+	}
 	else {
 		Serial.println ("Unknown command\n\r");
 	}
