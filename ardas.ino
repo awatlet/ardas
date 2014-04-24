@@ -106,6 +106,7 @@ void loop () {
 			// TODO: check parameter type
 		  	parameter = s.substring (4,7);
 		  	netid = parameter.toInt ();
+		  	EEPROM.write(1, netid);
 		  	Serial.print ("!SI ");
 		  	Serial.println (netid);
 		} 
