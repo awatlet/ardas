@@ -60,18 +60,18 @@ void loop () {
 		Serial.println ("\n\r!E0[Echo disabled]\n\r");
 		echo = 0;
 	} 
-	else if (command == e1) { //  Only Data
+	else if (command == e1) { 					//  Only Data
 		Serial.println ("!E1\n\r");
 		echo = 1;
 	} 
-	else if (command == e2) { //  Data + Time
+	else if (command == e2) { 					//  Data + Time
 		Serial.println ("!E2\n\r");
 		echo = 2;
 	} 
-	else if (command == ri) { //  Data + Time
+	else if (command == ri) { 					//  Read info
 		Serial.println("!RI Station: " + String(station) +" DasNo: " + String(netid) + " Integration: " + String(integration_period));
 	} 
-	else if (command == sd) {  // SET date
+	else if (command == sd) {  					// SET date
 		//setTime(1396944974.452954);
 		Serial.print("!SD");
 		Serial.print(" ");
@@ -88,21 +88,20 @@ void loop () {
 	} 
 	else if (command == rv) {
 		Serial.println("!RV " + VERSION);
-	} 
-	else if (command == sr) {  // SET integration period
+	}
+	else if (command == ss) {                     // SET station number
 		if (s.length () == 9) {
-			// TODO: check parameter type
-			parameter = s.substring (4,8);
-			integration_period = parameter.toInt ();
-		  	Serial.print ("!SR ");
-		  	Serial.println (integration_period);
+			parameter = s.substring (4, 8);
+		  	station = parameter.toInt ();
+		  	EEPROM.write (0, station);
+		  	Serial.print ("!SS ");
+		  	Serial.println (station); 	  	   
 		} 
 		else {
-		  	Serial.print("!SR ");
-		  	Serial.println(integration_period);
-		}
-	} 
-	else if (command == si) {  // SET das netid
+		  	Serial.print ("!SS value error");
+	    }
+	}  
+	else if (command == si) {  					   // SET das netid
 		if(s.length () == 8) {
 			// TODO: check parameter type
 		  	parameter = s.substring (4,7);
@@ -115,17 +114,19 @@ void loop () {
 			Serial.println (netid);
 		}
 	} 
-	else if (command == ss) {  // SET station number
+	else if (command == sr) {  					// SET integration period
 		if (s.length () == 9) {
-			parameter = s.substring (4, 8);
-		  	station = parameter.toInt ();
-		  	EEPROM.write (0, station);
-		  	Serial.print ("!SS ");
-		  	Serial.println (station); 	  	   
+			// TODO: check parameter type
+			parameter = s.substring (4,8);
+			integration_period = parameter.toInt ();
+			EEPROM.write (2, integration_period);
+		  	Serial.print ("!SR ");
+		  	Serial.println (integration_period);
 		} 
 		else {
-		  	Serial.print ("!SS value error");
-	    }
+		  	Serial.print("!SR ");
+		  	Serial.println(integration_period);
+		}
 	} 
 	else {
 		Serial.println ("Unknown command\n\r");
