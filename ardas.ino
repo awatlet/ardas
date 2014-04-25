@@ -1,4 +1,5 @@
 #include <EEPROM.h>
+#include <Time.h>
 
 String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
 char EOL;
