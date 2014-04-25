@@ -1,4 +1,3 @@
-#include <Time.h>
 #include <EEPROM.h>
 
 String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
@@ -40,20 +39,30 @@ void set_echo_data_and_time () {
 	echo = 2;
 }
 
-void set_date_and_time () {
-	//setTime(1396944974.452954);
-	Serial.print("!SD");
-	Serial.print(" ");
-	Serial.print(year());
-	Serial.print(" ");
-	Serial.print(month());
-	Serial.print(" ");
-	Serial.print(day());
-	Serial.print(" ");
-	Serial.print(minute());
-	Serial.print(" ");
-	Serial.print(second());
-	Serial.println();
+void set_date_and_time (String s) {
+	if (s.length () == 19) {
+		String yr, mh, dy, hr, mn, sd;
+		yr = s.substring (4, 8);
+		mh = s.substring (9, 11);
+		dy = s.substring (12, 13);
+		hr = s.substring (14, 15);
+		mn = s.substring (16, 17);
+		sd = s.substring (18, 19);
+
+		setTime(hr.toInt (), mn.toInt (), sd.toInt (), dy.toInt (), mn.toInt (), yr.toInt ());
+		Serial.print("!SD");
+		Serial.print(" ");
+		Serial.print(year());
+		Serial.print(" ");
+		Serial.print(month());
+		Serial.print(" ");
+		Serial.print(day());
+		Serial.print(" ");
+		Serial.print(minute());
+		Serial.print(" ");
+		Serial.print(second());
+		Serial.println();
+	}	
 }
 
 void get_das_info () {
@@ -64,6 +73,7 @@ void get_das_info () {
 void get_version () {
 	Serial.println("!RV " + VERSION);
 }
+
 
 void set_station_id (String s) {
 	if (s.length () == 9) {
@@ -164,9 +174,9 @@ void loop () {
 	// send data only when you receive data:
 	do {
 		if (Serial.available () > 0) {
-		// read the incoming byte:
-		c = Serial.read ();
-		s += c;
+		// read the incoming bytes
+			c = Serial.read ();
+			s += c;
 		}
 	} 
 	while (c != EOL);
@@ -186,7 +196,7 @@ void loop () {
 		get_das_info ();
 	} 
 	else if (command == sd) {  					
-		set_date_and_time ();
+		set_date_and_time (s);
 	} 
 	else if (command == rv) {
 		get_version ();
