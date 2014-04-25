@@ -1,7 +1,7 @@
 #include <EEPROM.h>
 #include <Time.h>
 
-String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
+String VERSION, he, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
 char EOL;
 int station, netid, integration_period, nb_inst;
 int echo = 1;
@@ -45,6 +45,20 @@ void read_config_or_set_default () {
 	if ( nb_inst == 0) {
 		nb_inst = 4;
 	}
+}
+
+void help () {
+	Serial.println ("\n\rHELP COMMAND :");
+	Serial.println ("#E0 : No Echo");
+	Serial.println ("#E1 : Only Data");
+	Serial.println ("#E2 : Data + Time");
+	Serial.println ("#SD yyyy mm dd hh nn ss : Set Date + Time");
+	Serial.println ("#SR iiii : Set Integration Period");
+	Serial.println ("#SS : Set Station Number");
+	Serial.println ("#SI nnn : Set DAS Number");
+	Serial.println ("#RI : Read Info");
+	Serial.println ("#RV : Read version");
+	Serial.println ("#ZR ssss nnn iiii s : Reconfig");
 }
 
 void set_no_echo () {
@@ -172,7 +186,8 @@ void reconfig (String s) {
 
 
 void setup () {
- 	VERSION = String("ARDAS 0.1");
+ 	VERSION = String("Version ARDAS 0.1 [2013-2014]");
+ 	he = String ("#HE");
 	e0 = String ("#E0");
 	e1 = String ("#E1");
 	e2 = String ("#E2");
@@ -206,7 +221,10 @@ void loop () {
 	//Serial.println(s);   
 
 	command = s.substring (0,3);
-	if (command == e0) { 
+	if (command == he) {
+		help ();
+	}
+	else if (command == e0) { 
 		set_no_echo ();
 	} 
 	else if (command == e1) { 					
