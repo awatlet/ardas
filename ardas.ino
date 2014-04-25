@@ -133,9 +133,9 @@ void reconfig (String s) {
 		nb_inst = parameter4.toInt ();
 
 		EEPROM.write (0, station);
-		EEPROM.write (1, station);
-		EEPROM.write (2, station);
-		EEPROM.write (3, station);
+		EEPROM.write (1, netid);
+		EEPROM.write (2, integration_period);
+		EEPROM.write (3, nb_inst);
 		delay(100);
 		Serial.print ("!ZR ");
 		Serial.print (station);
