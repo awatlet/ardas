@@ -5,21 +5,43 @@ String VERSION, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
 char EOL;
 int station, netid, integration_period, nb_inst;
 int echo = 1;
+int addr_station = 0;
+int addr_netid = 2;
+int addr_integration_period = 3;
+int addr_nb_inst = 5;
+
+void EEPROMWriteOnTwoBytes (int address, int value) {
+	byte two = (value & 0xFF);
+	byte one = ((value >> 8) & 0xFF);
+	
+	EEPROM.write (address, two);
+	EEPROM.write (address +1, one);
+}
+
+int EEPROMReadTwoBytes (int address) {
+	int two = EEPROM.read (address);
+	int one = EEPROM.read (address + 1);
+
+	return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
+	//return ( ((two << 0) & 0xFF) + ((one << 8) & 0xFFF)));
+}
+
+
   
 void read_config_or_set_default () {
-	station = EEPROM.read (0);
+	station = EEPROMReadTwoBytes (addr_station);
 	if (station == 0) {
 		station = 1;
 	}
-	netid = EEPROM.read (1);
+	netid = EEPROM.read (addr_netid);
 	if (netid == 0) {
 		netid = 255;
 	}
-	integration_period = EEPROM.read (2);
+	integration_period = EEPROMReadTwoBytes (addr_integration_period);
 	if (integration_period == 0) {
 		integration_period = 60;
 	}
-	nb_inst = EEPROM.read (3);
+	nb_inst = EEPROM.read (addr_nb_inst);
 	if ( nb_inst == 0) {
 		nb_inst = 4;
 	}
@@ -80,7 +102,7 @@ void set_station_id (String s) {
 	if (s.length () == 9) {
 			parameter = s.substring (4, 8);
 		  	station = parameter.toInt ();
-		  	EEPROM.write (0, station);
+		  	EEPROMWriteOnTwoBytes (addr_station, station);
 		  	Serial.print ("!SS ");
 		  	Serial.println (station); 	  	   
 		} 
@@ -94,7 +116,7 @@ void set_das_netid (String s) {
 			// TODO: check parameter type
 		  	parameter = s.substring (4,7);
 		  	netid = parameter.toInt ();
-		  	EEPROM.write(1, netid);
+		  	EEPROM.write(addr_netid, netid);
 		  	Serial.print ("!SI ");
 		  	Serial.println (netid);
 		} 
@@ -109,7 +131,7 @@ void set_integration_period (String s) {
 			// TODO: check parameter type
 			parameter = s.substring (4,8);
 			integration_period = parameter.toInt ();
-			EEPROM.write (2, integration_period);
+			EEPROMWriteOnTwoBytes (addr_integration_period, integration_period);
 		  	Serial.print ("!SR ");
 		  	Serial.println (integration_period);
 		} 
@@ -132,10 +154,10 @@ void reconfig (String s) {
 		integration_period = parameter3.toInt ();
 		nb_inst = parameter4.toInt ();
 
-		EEPROM.write (0, station);
-		EEPROM.write (1, netid);
-		EEPROM.write (2, integration_period);
-		EEPROM.write (3, nb_inst);
+		EEPROMWriteOnTwoBytes(addr_station, station);
+		EEPROM.write (addr_netid, netid);
+		EEPROMWriteOnTwoBytes (addr_integration_period, integration_period);
+		EEPROM.write (addr_nb_inst, nb_inst);
 		delay(100);
 		Serial.print ("!ZR ");
 		Serial.print (station);
