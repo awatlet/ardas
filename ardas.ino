@@ -1,5 +1,6 @@
 #include <EEPROM.h>
-#include <Time.h>
+//#include <Time.h>
+#include <SD.h>
 
 String VERSION, he, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
 char EOL;
@@ -9,6 +10,7 @@ int addr_station = 0;
 int addr_netid = 2;
 int addr_integration_period = 3;
 int addr_nb_inst = 5;
+File myFile;
 
 void EEPROMWriteOnTwoBytes (int address, int value) {
 	byte two = (value & 0xFF);
@@ -76,6 +78,7 @@ void set_echo_data_and_time () {
 	echo = 2;
 }
 
+/*
 void set_date_and_time (String s) {
 	if (s.length () == 19) {
 		String yr, mh, dy, hr, mn, sd;
@@ -101,6 +104,8 @@ void set_date_and_time (String s) {
 		Serial.println();
 	}	
 }
+
+*/
 
 void get_das_info () {
 	Serial.println("!RI Station: " + String(station) +" DasNo: " + 
@@ -203,6 +208,44 @@ void setup () {
 	
 	Serial.begin (9600);     // opens serial port, sets data rate to 9600 bps
 	Serial.flush ();
+
+        // Serial.print("Initializing SD card...");
+        // pinMode(10, OUTPUT);
+        
+        // if (!SD.begin(4)) {
+        //         Serial.println("initialization failed!");
+        //          return;
+        //  }
+        // Serial.println("initialization done.");
+        
+        // myFile = SD.open("test.txt", FILE_WRITE);
+        
+        // if (myFile) {
+        //         Serial.print("Writing to test.txt...");
+        //         myFile.println("testing 1, 2, 3.");
+	       //  // close the file:
+        //         myFile.close();
+        //         Serial.println("done.");
+        // } else {
+        // // if the file didn't open, print an error:
+        //         Serial.println("error opening test.txt");
+        // }
+        
+        // // re-open the file for reading:
+        // myFile = SD.open("test.txt");
+        // if (myFile) {
+        //         Serial.println("test.txt:");
+    
+        //         // read from the file until there's nothing else in it:
+        //         while (myFile.available()) {
+    	   //              Serial.write(myFile.read());
+        //         }
+        //         // close the file:
+        //         myFile.close();
+        // } else {
+  	     //    // if the file didn't open, print an error:
+        //         Serial.println("error opening test.txt");
+        // }
 }
 
 void loop () {
@@ -237,7 +280,7 @@ void loop () {
 		get_das_info ();
 	} 
 	else if (command == sd) {  					
-		set_date_and_time (s);
+		//set_date_and_time (s);
 	} 
 	else if (command == rv) {
 		get_version ();
