@@ -2,7 +2,7 @@
 //#include <Time.h>
 #include <SD.h>
 
-String VERSION, he, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter;
+String VERSION, he, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter, connect_id;
 char EOL;
 int station, netid, integration_period, nb_inst;
 int echo = 1;
@@ -47,6 +47,17 @@ void read_config_or_set_default () {
 	if ( nb_inst == 0) {
 		nb_inst = 4;
 	}
+}
+
+void connect () {
+    Serial.print ("!HI ");
+    Serial.print (station);
+    Serial.print (" ");
+    Serial.print (netid);
+    Serial.print (" ");
+    Serial.print (integration_period);
+    Serial.print (" ");
+    Serial.println (nb_inst);
 }
 
 void help () {
@@ -192,6 +203,7 @@ void reconfig (String s) {
 
 void setup () {
  	VERSION = String("Version ARDAS 0.1 [2013-2014]");
+
  	he = String ("#HE");
 	e0 = String ("#E0");
 	e1 = String ("#E1");
@@ -205,7 +217,9 @@ void setup () {
 	zr = String ("#ZR");
 	EOL = '\r';
 	read_config_or_set_default ();
-	
+	connect_id = String("-") + String(netid);
+
+
 	Serial.begin (9600);     // opens serial port, sets data rate to 9600 bps
 	Serial.flush ();
 
@@ -251,7 +265,7 @@ void setup () {
 void loop () {
 	char c;
 	String s;
-	String command;
+	String command, first_character;
 	// send data only when you receive data:
 	do {
 		if (Serial.available () > 0) {
@@ -263,41 +277,52 @@ void loop () {
 	while (c != EOL);
 	//Serial.println(s);   
 
-	command = s.substring (0,3);
-	if (command == he) {
-		help ();
-	}
-	else if (command == e0) { 
-		set_no_echo ();
-	} 
-	else if (command == e1) { 					
-		set_echo_data ();
-	} 
-	else if (command == e2) { 					
-		set_echo_data_and_time ();	
-	} 
-	else if (command == ri) { 					
-		get_das_info ();
-	} 
-	else if (command == sd) {  					
-		//set_date_and_time (s);
-	} 
-	else if (command == rv) {
-		get_version ();
-	}
-	else if (command == ss) {                    
-		set_station_id (s);
-	}  
-	else if (command == si) {  					   
-		set_das_netid (s);
-	} 
-	else if (command == sr) {  					
-		set_integration_period (s);
-	} 
-	else if (command == zr) {
-		reconfig (s);
-	}
-	else {
-		Serial.println ("Unknown command\n\r");
-	}
+    // say hi
+    first_character = s.substring (0,1);
+    if( first_character == "-") {
+        if (s.substring (0,4)) {
+            connect ();
+        }
+    }
+    else {
+        command = s.substring (0,3);
+        if (command == he) {
+            help ();
+        }
+        else if (command == e0) {
+            set_no_echo ();
+        }
+        else if (command == e1) {
+            set_echo_data ();
+        }
+        else if (command == e2) {
+            set_echo_data_and_time ();
+        }
+        else if (command == ri) {
+            get_das_info ();
+        }
+        else if (command == sd) {
+            //set_date_and_time (s);
+        }
+        else if (command == rv) {
+            get_version ();
+        }
+        else if (command == ss) {
+            set_station_id (s);
+        }
+        else if (command == si) {
+            set_das_netid (s);
+        }
+        else if (command == sr) {
+            set_integration_period (s);
+        }
+        else if (command == zr) {
+            reconfig (s);
+        }
+        else {
+            Serial.println ("Unknown command\n\r");
+        }
+    }
+
+
 }
