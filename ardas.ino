@@ -67,7 +67,7 @@ void help () {
 	Serial.println ("#E2 : Data + Time");
 	Serial.println ("#SD yyyy mm dd hh nn ss : Set Date + Time");
 	Serial.println ("#SR iiii : Set Integration Period");
-	Serial.println ("#SS : Set Station Number");
+	Serial.println ("#SS ssss : Set Station Number");
 	Serial.println ("#SI nnn : Set DAS Number");
 	Serial.println ("#RI : Read Info");
 	Serial.println ("#RV : Read version");
@@ -120,11 +120,11 @@ void set_date_and_time (String s) {
 
 void get_das_info () {
 	Serial.println("!RI Station: " + String(station) +" DasNo: " + 
-	String(netid) + " Integration: " + String(integration_period));
+	String(netid) + " Integration: " + String(integration_period) + "\n\r");
 }
 
 void get_version () {
-	Serial.println("!RV " + VERSION);
+	Serial.println("!RV " + VERSION + "\n\r");
 }
 
 
@@ -134,10 +134,10 @@ void set_station_id (String s) {
 		  	station = parameter.toInt ();
 		  	EEPROMWriteOnTwoBytes (addr_station, station);
 		  	Serial.print ("!SS ");
-		  	Serial.println (station); 	  	   
+		  	Serial.println (station + "\n\r");
 		} 
 	else {
-		  	Serial.print ("!SS value error");
+		  	Serial.print ("!SS value error\n\r");
 	}
 }
 
@@ -152,7 +152,7 @@ void set_das_netid (String s) {
 		} 
 	else { 
 			Serial.print ("!SI ");
-			Serial.println (netid);
+			Serial.println (netid + "\n\r");
 	}
 }
 
