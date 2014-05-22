@@ -280,7 +280,9 @@ void loop () {
     // say hi
     first_character = s.substring (0,1);
     if( first_character == "-") {
-        if (s.substring (0,4)) {
+        String s_netid = s.substring(1,4);
+        int recv_netid = s_netid.toInt();
+        if (recv_netid == netid) {
             connect ();
         }
     }
