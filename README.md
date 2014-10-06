@@ -1,4 +1,4 @@
-# Ardas
+# arDAS
 The arDAS project is an attempt to replace a **nanoDAS**.
 
 Features :
