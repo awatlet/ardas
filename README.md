@@ -1,5 +1,5 @@
 # Ardas
-The Ardas project is an attempt to replace a **nanoDAS**.
+The arDAS project is an attempt to replace a **nanoDAS**.
 
 Features :
 * Based on [Arduino] (http://arduino.cc/)
