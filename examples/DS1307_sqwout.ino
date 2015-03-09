@@ -11,7 +11,7 @@ void setup () {
     Wire.begin();
     RTC.begin();
     
-    // Activate square wave generator output otherwise you won't see anything !
+    // Activate Output control(OUT) for first initialization
     RTC.setSqwOutLevel(1);
     // Set SQW/Out signal frequency to 1 Hz.
     RTC.setSqwOutSignal(RTC_DS1307::Frequency_1Hz);
