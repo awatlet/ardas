@@ -10,9 +10,8 @@ void setup () {
     Serial.begin(57600);
     Wire.begin();
     RTC.begin();
-    
-    // Activate Output control(OUT) for first initialization
-    RTC.setSqwOutLevel(1);
+    // Synchronise clock to make sure it's running
+    RTC.adjust(DateTime(__DATE__, __TIME__));
     // Set SQW/Out signal frequency to 1 Hz.
     RTC.setSqwOutSignal(RTC_DS1307::Frequency_1Hz);
 }
