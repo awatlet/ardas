@@ -43,6 +43,7 @@ unsigned long current_count[NUMBER_OF_CHANNELS];
 byte b[NUMBER_OF_COUNTERS]; // incoming bytes
 byte cn = 0;
 int n = 0;
+boolean start_flag = true;
 unsigned int sampling_rate = 2; // integration time in seconds 
 Ds1307SqwPinMode modes[] = {SquareWave1HZ, SquareWave4kHz, SquareWave8kHz, SquareWave32kHz};
 Ds1307SqwPinMode RTC_freq;
@@ -132,7 +133,7 @@ void digitalSerialWrite(byte Val)
 
 void setup()
 {
-  Serial.begin(57600);
+  Serial.begin(9600);
   Wire.begin();
   if (DEBUG)
     Serial.print("Setup");
@@ -156,7 +157,7 @@ void setup()
          Serial.print("Warning : invalid frequency. Reset to default !");
   } 
   RTC.begin();
-  RTC.adjust(DateTime(__DATE__, __TIME__));
+  RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
   //RTC.setSqwOutSignal(RTC_freq);
   RTC.writeSqwPinMode(RTC_freq); 
   
@@ -220,7 +221,7 @@ void loop(){
     n += 1;
     if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
           DateTime now = RTC.now();
-          DateTime tic = now.unixtime() - sampling_rate/2.0;
+          DateTime tic = now.unixtime() - uint32_t(sampling_rate/2.0);
           SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
     }
     if(DEBUG){
@@ -301,15 +302,24 @@ void loop(){
           Serial.println("Hz");
         }
         else {
-          channel[cn]=channel[cn]/sampling_rate;
-          unsigned long dc = floor(channel[cn]);
-          unsigned int fc = floor((channel[cn]-dc)*10000); 
-          SerialPrintf("%06lu.%04d ",dc,fc);
+          if (!start_flag){
+            channel[cn]=channel[cn]/sampling_rate;
+            unsigned long dc = floor(channel[cn]);
+            unsigned int fc = floor((channel[cn]-dc)*10000); 
+            SerialPrintf("%06lu.%04d ",dc,fc);
+          }
         }
         channel[cn]=0;
         if (cn==NUMBER_OF_CHANNELS-1)
+        {
+          if (start_flag)
+          {
+            start_flag = false;
+            Serial.print("started counting...");
+          }
           Serial.println("");
-          n=0;  
+        }
+        n=0;  
       }
       else{
         if (DEBUG)
