@@ -28,4 +28,26 @@ Pin 2 of shift register to pin 3 of Arduino (CP)    // clock for synchronous com
 Pin 9 of shift register to pin 12 of Arduino (Q7)    // serial output  
 Pin 15 of shift register to pin 11 of Arduino (CE)  // activation cp clock  
 
+## Sync the fork
+
+List the current configured remote repository for your fork.  
+```
+$ git remote -v
+```
+
+Specify a new remote upstream repository that will be synced with the fork.  
+```
+$ git remote add upstream https://github.com/UMONS-GFA/ardas.git
+```
+
+Fetch the branches and their respective commits from the upstream repository. Commits to master will be stored in a local branch, upstream/master.  
+```
+$ git fetch upstream
+```
+
+Merge the changes from upstream/master into your local master branch. This brings your fork's master branch into sync with the upstream repository, without losing your local changes.  
+```
+$ git merge upstream/master
+```
+ 
 
