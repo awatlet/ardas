@@ -52,11 +52,11 @@ Ds1307SqwPinMode RTC_freq;
 // µDAS interface
 String  he, e0, e1, e2, ri, sd, rv, sr, si,ss, zr, parameter, connect_id;
 char EOL;
-int station, netid, integration_period, nb_inst;
+int station, netid, nb_inst;
 int echo = 1;
 int addr_station = 0;
 int addr_netid = 2;
-int addr_integration_period = 3;
+int addr_sampling_rate = 3;
 int addr_nb_inst = 5;
 String s;
 
@@ -153,12 +153,12 @@ void EEPROMWriteOnTwoBytes (int address, int value) {
 	EEPROM.write (address +1, one);
 }
 
-int EEPROMReadTwoBytes (int address) {
+int EEPROMReadTwoBytes (int address) {   // TODO : unsigned int
 	int two = EEPROM.read (address);
 	int one = EEPROM.read (address + 1);
 
 	return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
-	//return ( ((two << 0) & 0xFF) + ((one << 8) & 0xFFF)));
+	//return ( ((two << 0) & 0xFF) + ((one << 8) & 0xFFF)));
 }
 
 
@@ -172,9 +172,9 @@ void read_config_or_set_default () {
 	if (netid == 0) {
 		netid = 255;
 	}
-	integration_period = EEPROMReadTwoBytes (addr_integration_period);
-	if (integration_period == 0) {
-		integration_period = 60;
+	sampling_rate = EEPROMReadTwoBytes (addr_sampling_rate);
+	if (sampling_rate == 0) {
+		sampling_rate = 60;
 	}
 	nb_inst = EEPROM.read (addr_nb_inst);
 	if ( nb_inst == 0) {
@@ -188,7 +188,7 @@ void connect () {
     Serial.print (" ");
     Serial.print (netid);
     Serial.print (" ");
-    Serial.print (integration_period);
+    Serial.print (sampling_rate);
     Serial.print (" ");
     Serial.println (nb_inst);
 }
@@ -201,7 +201,7 @@ void help () {
 	Serial.println ("#SD yyyy mm dd hh nn ss : Set Date + Time");
 	Serial.println ("#SR iiii : Set Integration Period");
 	Serial.println ("#SS ssss : Set Station Number");
-	Serial.println ("#SI nnn : Set DAS Number");
+	Serial.println ("#SI nnn : Set DAS Number");
 	Serial.println ("#RI : Read Info");
 	Serial.println ("#RV : Read version");
 	Serial.println ("#ZR ssss nnn iiii s : Reconfig");
@@ -252,8 +252,7 @@ void set_date_and_time (String s) {
 */
 
 void get_das_info () {
-	Serial.println("!RI Station: " + String(station) +" DasNo: " +
-	String(netid) + " Integration: " + String(integration_period) + "\n\r");
+	SerialPrintf("!RI Station: %04d DasNo: %03d Integration: %04d\n\r", station, netid, sampling_rate);
 }
 
 void get_version () {
@@ -266,8 +265,8 @@ void set_station_id (String s) {
 			parameter = s.substring (4, 8);
 		  	station = parameter.toInt ();
 		  	EEPROMWriteOnTwoBytes (addr_station, station);
-		  	Serial.print ("!SS ");
-		  	Serial.println (station + "\n\r");
+		  	SerialPrintf ("!SS %04d\n\r", station);
+		  	// Serial.println (station + "\n\r");
 		}
 	else {
 		  	Serial.print ("!SS value error\n\r");
@@ -289,19 +288,14 @@ void set_das_netid (String s) {
 	}
 }
 
-void set_integration_period (String s) {
-	if (s.length () == 9) {
-			// TODO: check parameter type
-			parameter = s.substring (4,8);
-			integration_period = parameter.toInt ();
-			EEPROMWriteOnTwoBytes (addr_integration_period, integration_period);
-		  	Serial.print ("!SR ");
-		  	Serial.println (integration_period);
-		}
-	else {
-		  	Serial.print("!SR ");
-		  	Serial.println(integration_period);
-	}
+void set_sampling_rate (String s) {
+  if (s.length () == 9) {
+    // TODO: check parameter type
+    parameter = s.substring (4,8);
+    sampling_rate = parameter.toInt (); // TODO unsigned int 
+    EEPROMWriteOnTwoBytes (addr_sampling_rate, sampling_rate);
+   }
+   SerialPrintf("!SR %04d\n\r", sampling_rate);
 }
 
 void reconfig (String s) {
@@ -314,12 +308,12 @@ void reconfig (String s) {
 
 		station = parameter1.toInt ();
 		netid = parameter2.toInt ();
-		integration_period = parameter3.toInt ();
+		sampling_rate = parameter3.toInt ();
 		nb_inst = parameter4.toInt ();
 
 		EEPROMWriteOnTwoBytes(addr_station, station);
 		EEPROM.write (addr_netid, netid);
-		EEPROMWriteOnTwoBytes (addr_integration_period, integration_period);
+		EEPROMWriteOnTwoBytes (addr_sampling_rate, sampling_rate);
 		EEPROM.write (addr_nb_inst, nb_inst);
 		delay(100);
 		Serial.print ("!ZR ");
@@ -327,7 +321,7 @@ void reconfig (String s) {
 		Serial.print (" ");
 		Serial.print (netid);
 		Serial.print (" ");
-		Serial.print (integration_period);
+		Serial.print (sampling_rate);
 		Serial.print (" ");
 		Serial.println (nb_inst);
 	}
@@ -490,7 +484,7 @@ void loop(){
         set_das_netid (s);
       }
       else if (command == sr) {
-        set_integration_period (s);
+        set_sampling_rate (s);
       }
       else if (command == zr) {
         reconfig (s);
@@ -506,10 +500,15 @@ void loop(){
     // TODO : read time on RTC and substract half of the integration period
     n += 1;
     if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
-          DateTime now = RTC.now();
-          DateTime tic = now.unixtime() - uint32_t(sampling_rate/2.0);
-          if (echo != 0)
-            SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
+      DateTime now = RTC.now();
+      DateTime tic = now.unixtime() - uint32_t(sampling_rate/2.0);
+      if (echo != 0)
+        SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
+    }
+    else if ((echo == 2) && ((n % READ_COUNTER_REGISTER_FREQ) == 0 )) {
+      DateTime tic = RTC.now();
+        SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
+        Serial.println("");
     }
     if(DEBUG){
       Serial.println("BEGINS...");
