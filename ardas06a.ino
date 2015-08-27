@@ -7,6 +7,10 @@
 #define CLOCK_FREQ 8192
 #define VERSION "Version ARDAS 0.6 [2013-2015]"
 #define EOL '\r'
+#define ADDR_STATION 0
+#define ADDR_NETID 2
+#define ADDR_SAMPLING_RATE 3
+#define ADDR_NB_INST 5
 
 const int COUNTS_BETWEEN_READINGS = CLOCK_FREQ / READ_COUNTER_REGISTER_FREQ;
 const int NUMBER_OF_COUNTERS = 2; // 32 bits counters
@@ -54,13 +58,8 @@ Ds1307SqwPinMode RTC_freq;
 // µDAS interface
 int station, netid, nb_inst;
 int echo = 1;
-int addr_station = 0;
-int addr_netid = 2;
-int addr_sampling_rate = 3;
-int addr_nb_inst = 5;
-String s;
 
-//String VERSION = "Version ARDAS 0.6 [2013-2015]";
+String s;
 
 void rtc_interrupt()
 {
@@ -161,7 +160,6 @@ int EEPROMReadTwoBytes (int address) {   // TODO : unsigned int
 	//return ( ((two << 0) & 0xFF) + ((one << 8) & 0xFFF)));
 }
 
-
 // Get SRAM usage
 int freeRam () {
   extern int __heap_start, * __brkval;
@@ -170,19 +168,19 @@ int freeRam () {
 }
 
 void read_config_or_set_default () {
-  station = EEPROMReadTwoBytes (addr_station);
+  station = EEPROMReadTwoBytes (ADDR_STATION);
   if (station == 0) {
     station = 1;
   }
-  netid = EEPROM.read (addr_netid);
+  netid = EEPROM.read (ADDR_NETID);
   if (netid == 0) {
     netid = 255;
   }
-  sampling_rate = EEPROMReadTwoBytes (addr_sampling_rate);
+  sampling_rate = EEPROMReadTwoBytes (ADDR_SAMPLING_RATE);
   if (sampling_rate == 0) {
     sampling_rate = 60;
   }
-  nb_inst = EEPROM.read (addr_nb_inst);
+  nb_inst = EEPROM.read (ADDR_NB_INST);
   if ( nb_inst == 0) {
     nb_inst = 4;
   }
@@ -228,31 +226,22 @@ void set_echo_data_and_time () {
 
 
 void set_date_and_time (String s) {
-//    String yr, mh, dy, hr, mn, sc;
-//
-//	if (s.length () == 24) {
-//		yr = s.substring (4, 8);
-//		mh = s.substring (9, 11);
-//		dy = s.substring (12, 14);
-//		hr = s.substring (15, 17);
-//		mn = s.substring (18, 20);
-//		sc = s.substring (21, 23);
-//
-//                SerialPrintf("!SD %04d %02d %02d %02d %02d %02d\n\r", yr, mh, dy, hr, mn, sc);
-//
-//
-//
-//                //Serial.println(yr);
-//                //Serial.println(mh);
-//                //Serial.println(dy);
-//		//SerialPrintf("!SD %04d %02d %02d %02d %02d %02d\n\r", yr, mh, dy, hr, mn, sc);
-//
-//	}
-//  else {
-//    Serial.print ("!SD value error\n\r");
-//    Serial.print(s.length());
-//  }
-//
+  int yr, mh, dy, hr, mn, sc;
+
+  if (s.length () == 24) {
+    yr = s.substring (4, 8).toInt();
+    mh = s.substring (9, 11).toInt();
+    dy = s.substring (12, 14).toInt();
+    hr = s.substring (15, 17).toInt();
+    mn = s.substring (18, 20).toInt();
+    sc = s.substring (21, 23).toInt();
+    RTC.adjust(DateTime(yr, mh, dy, hr, mn, sc));
+    RTC.writeSqwPinMode(RTC_freq);
+    SerialPrintf("!SD %04d %02d %02d %02d %02d %02d\n\r", yr, mh, dy, hr, mn, sc);
+  }
+  else {
+    Serial.print (F("!SD value error\n\r"));
+  }   
 }
 
 
@@ -272,7 +261,7 @@ void get_version () {
 void set_station_id (String s) {
   if (s.length () == 9) {
     station = s.substring (4, 8).toInt ();
-    EEPROMWriteOnTwoBytes (addr_station, station);
+    EEPROMWriteOnTwoBytes (ADDR_STATION, station);
     SerialPrintf ("!SS %04d\n\r", station);
   }
   else {
@@ -283,7 +272,7 @@ void set_station_id (String s) {
 void set_das_netid (String s) {
   if(s.length () == 8) {
     netid = s.substring (4,7).toInt ();
-    EEPROM.write(addr_netid, netid);
+    EEPROM.write(ADDR_NETID, netid);
   }
   SerialPrintf("!SI %03d\n\r",netid);
 }
@@ -291,8 +280,8 @@ void set_das_netid (String s) {
 void set_sampling_rate (String s) {
   if (s.length () == 9) {
     // TODO: check parameter type
-    sampling_rate = s.substring (4,8).toInt (); // TODO unsigned int
-    EEPROMWriteOnTwoBytes (addr_sampling_rate, sampling_rate);
+    sampling_rate = s.substring (4,8).toInt (); // TODO unsigned int 
+    EEPROMWriteOnTwoBytes (ADDR_SAMPLING_RATE, sampling_rate);
     start_flag = true;
    }
    SerialPrintf("!SR %04d\n\r", sampling_rate);
@@ -305,14 +294,17 @@ void reconfig (String s) {
     sampling_rate = s.substring (13, 17).toInt ();
     nb_inst = s.substring (18, 19).toInt ();
 
-    EEPROMWriteOnTwoBytes(addr_station, station);
-    EEPROM.write (addr_netid, netid);
-    EEPROMWriteOnTwoBytes (addr_sampling_rate, sampling_rate);
-    EEPROM.write (addr_nb_inst, nb_inst);
+    EEPROMWriteOnTwoBytes(ADDR_STATION, station);
+    EEPROM.write (ADDR_NETID, netid);
+    EEPROMWriteOnTwoBytes (ADDR_SAMPLING_RATE, sampling_rate);
+    EEPROM.write (ADDR_NB_INST, nb_inst);
     delay(100);
     Serial.print (F("!ZR"));
     get_info();
     start_flag = true;
+  }
+  else{
+    Serial.print (F("!ZR value error\n\r"));
   }
 }
 
