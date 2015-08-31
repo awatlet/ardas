@@ -1,16 +1,42 @@
+/***
+    Copyright (C) 2013-2015 UMONS
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+***/
+
 #include <Wire.h>
 #include <RTClib.h>
 #include <EEPROM.h>
+#include <SD.h>
 
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 8192
-#define VERSION "Version ARDAS 0.6 [2013-2015]"
+#define VERSION "Version ARDAS 0.7 [2013-2015]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
 #define ADDR_SAMPLING_RATE 3
 #define ADDR_NB_INST 5
+#define DATA_FILE "data.bin"
+const uint8_t x00 = 0;
+const uint8_t xFD = 253;
+const uint8_t xFE = 254;
+const uint8_t xFF = 255;
+
+File data_file;
 
 const int COUNTS_BETWEEN_READINGS = CLOCK_FREQ / READ_COUNTER_REGISTER_FREQ;
 const int NUMBER_OF_COUNTERS = 2; // 32 bits counters
@@ -20,6 +46,7 @@ const int NUMBER_OF_CHANNELS = NUMBER_OF_COUNTERS * NUMBER_OF_CHANNELS_PER_COUNT
 const int BYTES_PER_CHANNEL = 4 / NUMBER_OF_CHANNELS_PER_COUNTER;
 
 boolean DEBUG = false; // true;
+boolean download = false;
 int freq = CLOCK_FREQ;
 
 RTC_DS1307 RTC;
@@ -27,17 +54,20 @@ RTC_DS1307 RTC;
 // Pins
 /* RTC */
 // Don't forget to connect I2C pins A4 and A5 (5 and 6 of RTC)
-const byte rtc_pulse_pin = 2;
-const byte rclk_pin = 13;      // set selected byte to output
+const byte rtc_pulse_pin = 2;  // pin for interrupt 0
+/* SN74LV8054 */
+const byte rclk_pin = 5;      // set selected byte to output
 /* 74HC165N */
 const byte pl_pin = 8;         // latch pin
-const byte cp_pin = 12;        // clock for synchronous communication
-const byte q7_pin = 11;        // serial output
+const byte cp_pin = 6;        // clock for synchronous communication
+const byte q7_pin = 7;        // serial output
 const byte ce_pin = 9;         // activation cp clock
 /* 74HC595N */
-const byte stcp_pin = 3;       // pin connected to ST_CP of 74HC595
-const byte shcp_pin = 4;       // pin connected to SH_CP of 74HC595
-const byte ds_pin = 5;         // pin connected to DS of 74HC595
+const byte stcp_pin = 15;       // pin connected to ST_CP of 74HC595
+const byte shcp_pin = 16;       // pin connected to SH_CP of 74HC595
+const byte ds_pin = 14;         // pin connected to DS of 74HC595
+/* SD card */
+const byte ss_pin = 10;        // pin reserved for SD card output
 
 //others
 volatile unsigned int pulse_counter = 0;
@@ -144,12 +174,12 @@ void digitalSerialWrite(byte Val)
 }
 
 // µDAS interface
-void EEPROMWriteOnTwoBytes (int address, int value) {
+void EEPROMWriteOnTwoBytes(int address, int value) {
 	byte two = (value & 0xFF);
 	byte one = ((value >> 8) & 0xFF);
 
-	EEPROM.write (address, two);
-	EEPROM.write (address +1, one);
+	EEPROM.write(address, two);
+	EEPROM.write(address +1, one);
 }
 
 int EEPROMReadTwoBytes (int address) {   // TODO : unsigned int
@@ -191,60 +221,57 @@ void get_info(){
 }
 
 void connect () {
-  Serial.print (F("!HI"));
+  Serial.print(F("!HI"));
   get_info();
 }
 
 void help () {
-  Serial.println (F("\n\rHELP COMMAND :"));
-  Serial.println (F("#E0 : No Echo"));
-  Serial.println (F("#E1 : Only Data"));
-  Serial.println (F("#E2 : Data + Time"));
-  Serial.println (F("#SD yyyy mm dd hh nn ss : Set Date + Time"));
-  Serial.println (F("#SR iiii : Set Integration Period"));
-  Serial.println (F("#SS ssss : Set Station Number"));
-  Serial.println (F("#SI nnn : Set DAS Number"));
-  Serial.println (F("#RI : Read Info"));
-  Serial.println (F("#RV : Read version"));
-  Serial.println (F("#ZR ssss nnn iiii s : Reconfig"));
+  Serial.println(F("\n\rHELP COMMAND :"));
+  Serial.println(F("#E0 : No Echo"));
+  Serial.println(F("#E1 : Only Data"));
+  Serial.println(F("#E2 : Data + Time"));
+  Serial.println(F("#SD yyyy mm dd hh nn ss : Set Date + Time"));
+  Serial.println(F("#SR iiii : Set Integration Period"));
+  Serial.println(F("#SS ssss : Set Station Number"));
+  Serial.println(F("#SI nnn : Set DAS Number"));
+  Serial.println(F("#RI : Read Info"));
+  Serial.println(F("#RV : Read version"));
+  Serial.println(F("#ZR ssss nnn iiii s : Reconfig"));
 }
 
 void set_no_echo () {
-  Serial.println (F("\n\r!E0[Echo disabled]\n\r"));
+  Serial.println(F("\n\r!E0[Echo disabled]\n\r"));
   echo = 0;
 }
 
 void set_echo_data () {
-  Serial.println (F("!E1\n\r"));
+  Serial.println(F("!E1\n\r"));
   echo = 1;
 }
 
 void set_echo_data_and_time () {
-  Serial.println (F("!E2\n\r"));
+  Serial.println(F("!E2\n\r"));
   echo = 2;
 }
-
 
 void set_date_and_time (String s) {
   int yr, mh, dy, hr, mn, sc;
 
-  if (s.length () == 24) {
-    yr = s.substring (4, 8).toInt();
-    mh = s.substring (9, 11).toInt();
-    dy = s.substring (12, 14).toInt();
-    hr = s.substring (15, 17).toInt();
-    mn = s.substring (18, 20).toInt();
-    sc = s.substring (21, 23).toInt();
+  if (s.length() == 24) {
+    yr = s.substring(4, 8).toInt();
+    mh = s.substring(9, 11).toInt();
+    dy = s.substring(12, 14).toInt();
+    hr = s.substring(15, 17).toInt();
+    mn = s.substring(18, 20).toInt();
+    sc = s.substring(21, 23).toInt();
     RTC.adjust(DateTime(yr, mh, dy, hr, mn, sc));
     RTC.writeSqwPinMode(RTC_freq);
     SerialPrintf("!SD %04d %02d %02d %02d %02d %02d\n\r", yr, mh, dy, hr, mn, sc);
   }
   else {
-    Serial.print (F("!SD value error\n\r"));
-  }   
+    Serial.print(F("!SD value error\n\r"));
+  }
 }
-
-
 
 void get_das_info () {
   Serial.print(F("!RI"));
@@ -259,54 +286,58 @@ void get_version () {
 
 
 void set_station_id (String s) {
-  if (s.length () == 9) {
-    station = s.substring (4, 8).toInt ();
-    EEPROMWriteOnTwoBytes (ADDR_STATION, station);
+  if (s.length() == 9) {
+    station = s.substring(4, 8).toInt();
+    EEPROMWriteOnTwoBytes(ADDR_STATION, station);
     SerialPrintf ("!SS %04d\n\r", station);
   }
   else {
-    Serial.print (F("!SS value error\n\r"));
+    Serial.print(F("!SS value error\n\r"));
   }
 }
 
 void set_das_netid (String s) {
-  if(s.length () == 8) {
-    netid = s.substring (4,7).toInt ();
+  if(s.length() == 8) {
+    netid = s.substring(4,7).toInt();
     EEPROM.write(ADDR_NETID, netid);
   }
   SerialPrintf("!SI %03d\n\r",netid);
 }
 
 void set_sampling_rate (String s) {
-  if (s.length () == 9) {
+  if (s.length() == 9) {
     // TODO: check parameter type
-    sampling_rate = s.substring (4,8).toInt (); // TODO unsigned int 
-    EEPROMWriteOnTwoBytes (ADDR_SAMPLING_RATE, sampling_rate);
+    sampling_rate = s.substring(4,8).toInt(); // TODO unsigned int
+    EEPROMWriteOnTwoBytes(ADDR_SAMPLING_RATE, sampling_rate);
     start_flag = true;
    }
    SerialPrintf("!SR %04d\n\r", sampling_rate);
 }
 
 void reconfig (String s) {
-  if (s.length () == 20) {
-    station = s.substring (4, 8).toInt ();
-    netid = s.substring (9, 12).toInt ();
-    sampling_rate = s.substring (13, 17).toInt ();
-    nb_inst = s.substring (18, 19).toInt ();
+  if (s.length() == 20) {
+    station = s.substring(4, 8).toInt();
+    netid = s.substring(9, 12).toInt();
+    sampling_rate = s.substring(13, 17).toInt();
+    nb_inst = s.substring(18, 19).toInt();
 
     EEPROMWriteOnTwoBytes(ADDR_STATION, station);
-    EEPROM.write (ADDR_NETID, netid);
-    EEPROMWriteOnTwoBytes (ADDR_SAMPLING_RATE, sampling_rate);
-    EEPROM.write (ADDR_NB_INST, nb_inst);
+    EEPROM.write(ADDR_NETID, netid);
+    EEPROMWriteOnTwoBytes(ADDR_SAMPLING_RATE, sampling_rate);
+    EEPROM.write(ADDR_NB_INST, nb_inst);
     delay(100);
-    Serial.print (F("!ZR"));
+    Serial.print(F("!ZR"));
     get_info();
     start_flag = true;
   }
   else{
-    Serial.print (F("!ZR value error\n\r"));
+    Serial.print(F("!ZR value error\n\r"));
   }
 }
+
+/***
+SETUP
+***/
 
 void setup()
 {
@@ -337,7 +368,6 @@ void setup()
   }
   RTC.begin();
   RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  //RTC.setSqwOutSignal(RTC_freq);
   RTC.writeSqwPinMode(RTC_freq);
 
   for (int i=0; i<NUMBER_OF_CHANNELS; i++){
@@ -368,7 +398,24 @@ void setup()
   pinMode(stcp_pin, OUTPUT);
   pinMode(shcp_pin, OUTPUT);
   pinMode(ds_pin, OUTPUT);
+  pinMode(ss_pin, OUTPUT);
 
+  Serial.println(F("Initializing SD card ..."));
+  if (!SD.begin(4)) {
+    Serial.println(F("Initialisation failed !"));
+    return;
+  }
+  Serial.println(F("Initialization done !"));
+  SD.remove(DATA_FILE); // TODO :  remove this line
+  data_file = SD.open(DATA_FILE,FILE_WRITE);
+  data_file.write(xFF);
+  data_file.write(xFF);
+  DateTime tic = RTC.now();
+  uint32_t t = tic.unixtime();
+  data_file.write((byte *) &t,4);
+  for (int i=0; i<6; i++)
+     data_file.write((byte) 0,1);
+  data_file.flush();
   int init = 0;
   for (int i=0; i<NUMBER_OF_COUNTERS; i++){
     init = init << 4;
@@ -401,6 +448,10 @@ void setup()
   Serial.print(free_ram);
 }
 
+/***
+LOOP
+***/
+
 void loop(){
   char c;
   String command, first_character;
@@ -418,7 +469,7 @@ void loop(){
 
   if (c == EOL){
     // say hi
-    first_character = s.substring (0,1);
+    first_character = s.substring(0,1);
     if( first_character == "-") {
       String s_netid = s.substring(1,4);
       int recv_netid = s_netid.toInt();
@@ -427,7 +478,7 @@ void loop(){
       }
     }
     else {
-      command = s.substring (0,3);
+      command = s.substring(0,3);
       if (command == "#HE") {
         help ();
       }
@@ -464,16 +515,16 @@ void loop(){
       else if (command == "#DG") {
         DEBUG = !DEBUG;
         if (DEBUG)
-          Serial.print (F("Debug mode on ! \n\r"));
+          Serial.print(F("Debug mode on ! \n\r"));
         else
-          Serial.print (F("Debug mode off ! \n\r"));
+          Serial.print(F("Debug mode off ! \n\r"));
       }
       else {
         if (DEBUG)
-          Serial.print (F("Unknown command :"));
-          Serial.print (command);
-          Serial.println (F("\n\r"));
-        Serial.println (F("Unknown command\n\r"));
+          Serial.print(F("Unknown command :"));
+          Serial.print(command);
+          Serial.println(F("\n\r"));
+        Serial.println(F("Unknown command\n\r"));
       }
     }
     s = "";
@@ -485,8 +536,14 @@ void loop(){
     if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
       DateTime now = RTC.now();
       DateTime tic = now.unixtime() - uint32_t(sampling_rate/2.0);
-      if (echo != 0)
-        SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
+      if (!start_flag){
+        if (echo != 0)
+          SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
+        if (data_file) {
+          uint32_t t = tic.unixtime();
+          data_file.write((byte *) &t,4);
+        }
+      }
     }
     else if ((echo == 2) && ((n % READ_COUNTER_REGISTER_FREQ) == 0 )) {
       DateTime tic = RTC.now();
@@ -572,6 +629,10 @@ void loop(){
         }
         else {
           if (!start_flag){
+            if (data_file){
+              uint32_t x = (uint32_t) channel[cn];
+              data_file.write((byte *) &x,4);
+            }
             channel[cn]=channel[cn]/sampling_rate;
             unsigned long dc = floor(channel[cn]);
             unsigned int fc = floor((channel[cn]-dc)*10000);
@@ -588,6 +649,8 @@ void loop(){
             if (DEBUG)
               Serial.print(F("started counting..."));
           }
+          else if (data_file)
+            data_file.flush();
           if (echo != 0)
             Serial.println(F(""));
         }
