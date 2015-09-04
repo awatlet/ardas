@@ -6,7 +6,7 @@ Each receiver converts TIA/EIA-232-F inputs (RS232) to 5-V TTL/CMOS levels (Ardu
 
 ###  Pin configurations
 
-![](max232_pin_configurations.png)
+![](https://github.com/UMONS-GFA/ardas/blob/master/doc/MAX232N/max232_pin_configurations.jpg)
 
 IN: Enter in the MAX232  
 OUT: Out of the MAX232  
@@ -33,7 +33,7 @@ Pin 16 - **Vcc**
 
 ### How to use it with an Arduino
 
-![](MAX232_with_arduino.png)
+![](https://github.com/UMONS-GFA/ardas/blob/master/doc/MAX232N/MAX232_with_arduino.jpg)
 
 Use 4 capacitors of 1uF and 1 capacitor of 0.1 uF
 
