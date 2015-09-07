@@ -36,22 +36,21 @@
 
 File data_file;
 
-const int16_t COUNTS_BETWEEN_READINGS = CLOCK_FREQ / READ_COUNTER_REGISTER_FREQ;
-const int16_t NUMBER_OF_COUNTERS = 2; // 32 bits counters
-const int16_t DATA_WIDTH = NUMBER_OF_COUNTERS * 8; // number of bits returned by daisy-chained SN74HC165N for a call to readuint8_t
-const int16_t NUMBER_OF_CHANNELS_PER_COUNTER = 2; // 1 : 32 bits channels - 2: 16 bits channels
-const int16_t NUMBER_OF_CHANNELS = NUMBER_OF_COUNTERS * NUMBER_OF_CHANNELS_PER_COUNTER;
-const int16_t BYTES_PER_CHANNEL = 4 / NUMBER_OF_CHANNELS_PER_COUNTER;
+const uint16_t COUNTS_BETWEEN_READINGS = CLOCK_FREQ / READ_COUNTER_REGISTER_FREQ;
+const uint8_t NUMBER_OF_COUNTERS = 2; // 32 bits counters
+const uint8_t NUMBER_OF_CHANNELS_PER_COUNTER = 2; // 1 : 32 bits channels - 2: 16 bits channels
+const uint8_t NUMBER_OF_CHANNELS = NUMBER_OF_COUNTERS * NUMBER_OF_CHANNELS_PER_COUNTER;
+const uint8_t BYTES_PER_CHANNEL = 4 / NUMBER_OF_CHANNELS_PER_COUNTER;
 
 boolean DEBUG = false; // true;
-int freq = CLOCK_FREQ;
+uint8_t freq = CLOCK_FREQ;
 
 RTC_DS1307 RTC;
 
 // Pins
 /* RTC */
 // Don't forget to connect I2C pins A4 and A5 (5 and 6 of RTC)
-const uint8_t rtc_pulse_pin = 2;  // pin for interrupt 0
+// rtc_pulse on pin 2 for interrupt 0
 /* SN74LV8054 */
 const uint8_t rclk_pin = 5;       // set selected byte to output
 /* 74HC165N */
@@ -70,7 +69,6 @@ const uint8_t cs_pin = 4;      // CS pin for SD card (4 on Ethernet shield)
 //others
 volatile uint16_t pulse_counter = 0;
 volatile boolean read_counter_register = false;
-volatile DateTime tic;
 uint32_t channel[NUMBER_OF_CHANNELS];
 uint32_t c1=0;
 uint32_t counter_overflow;
@@ -146,7 +144,7 @@ void read_shift_regs()
       b[j] = 0;
       for(int i = 0; i < 8; i++)
       {
-        bitVal = digitalRead(q7_pin);
+        bitVal = (uint32_t) digitalRead(q7_pin);
         b[j] |= (bitVal << (7 - i));
         digitalWrite(cp_pin, HIGH);
         delayMicroseconds(PULSE_WIDTH_USEC);
@@ -186,7 +184,7 @@ void digitalSerialWrite(uint8_t Val)
 }
 
 // µDAS interface
-void EEPROMWriteOnTwoBytes(int address, int value) {
+void EEPROMWriteOnTwoBytes(uint8_t address, uint8_t value) {
 	uint8_t two = (value & 0xFF);
 	uint8_t one = ((value >> 8) & 0xFF);
 
@@ -194,12 +192,11 @@ void EEPROMWriteOnTwoBytes(int address, int value) {
 	EEPROM.write(address +1, one);
 }
 
-int EEPROMReadTwoBytes (int address) {   // TODO : unsigned int
-	int two = EEPROM.read (address);
-	int one = EEPROM.read (address + 1);
+uint16_t EEPROMReadTwoBytes (uint8_t address) {
+	uint8_t two = EEPROM.read (address);
+	uint8_t one = EEPROM.read (address + 1);
 
 	return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
-	//return ( ((two << 0) & 0xFF) + ((one << 8) & 0xFFF)));
 }
 
 // Get SRAM usage
@@ -267,15 +264,15 @@ void set_echo_data_and_time() {
 }
 
 void set_date_and_time(String s) {
-  int yr, mh, dy, hr, mn, sc;
+  uint8_t yr, mh, dy, hr, mn, sc;
 
   if (s.length() == 24) {
-    yr = s.substring(4, 8).toInt();
-    mh = s.substring(9, 11).toInt();
-    dy = s.substring(12, 14).toInt();
-    hr = s.substring(15, 17).toInt();
-    mn = s.substring(18, 20).toInt();
-    sc = s.substring(21, 23).toInt();
+    yr = (uint8_t) s.substring(4, 8).toInt();
+    mh = (uint8_t) s.substring(9, 11).toInt();
+    dy = (uint8_t) s.substring(12, 14).toInt();
+    hr = (uint8_t) s.substring(15, 17).toInt();
+    mn = (uint8_t) s.substring(18, 20).toInt();
+    sc = (uint8_t) s.substring(21, 23).toInt();
     RTC.adjust(DateTime(yr, mh, dy, hr, mn, sc));
     RTC.writeSqwPinMode(RTC_freq);
     SerialPrintf("!SD %04d %02d %02d %02d %02d %02d\n\r", yr, mh, dy, hr, mn, sc);
@@ -299,7 +296,7 @@ void get_version() {
 
 void set_station_id(String s) {
   if (s.length() == 9) {
-    station = s.substring(4, 8).toInt();
+    station = (uint16_t) s.substring(4, 8).toInt();
     EEPROMWriteOnTwoBytes(ADDR_STATION, station);
     SerialPrintf("!SS %04d\n\r", station);
   }
@@ -310,7 +307,7 @@ void set_station_id(String s) {
 
 void set_das_netid(String s) {
   if(s.length() == 8) {
-    netid = s.substring(4,7).toInt();
+    netid = (uint8_t) s.substring(4,7).toInt();
     EEPROM.write(ADDR_NETID, netid);
   }
   SerialPrintf("!SI %03d\n\r",netid);
@@ -319,7 +316,7 @@ void set_das_netid(String s) {
 void set_sampling_rate(String s) {
   if (s.length() == 9) {
     // TODO: check parameter type
-    sampling_rate = s.substring(4,8).toInt(); // TODO unsigned int
+    sampling_rate = (uint16_t) s.substring(4,8).toInt(); // TODO unsigned int
     EEPROMWriteOnTwoBytes(ADDR_SAMPLING_RATE, sampling_rate);
     start_flag = true;
    }
@@ -328,10 +325,10 @@ void set_sampling_rate(String s) {
 
 void reconfig(String s){
   if (s.length() == 20) {
-    station = s.substring(4, 8).toInt();
-    netid = s.substring(9, 12).toInt();
-    sampling_rate = s.substring(13, 17).toInt();
-    nb_inst = s.substring(18, 19).toInt();
+    station = (uint16_t) s.substring(4, 8).toInt();
+    netid = (uint8_t) s.substring(9, 12).toInt();
+    sampling_rate = (uint16_t) s.substring(13, 17).toInt();
+    nb_inst = (uint8_t) s.substring(18, 19).toInt();
 
     EEPROMWriteOnTwoBytes(ADDR_STATION, station);
     EEPROM.write(ADDR_NETID, netid);
@@ -348,7 +345,7 @@ void reconfig(String s){
 }
 
 void interrupt_download(){
-  Serial.print(F("!XS/n/r"));
+  Serial.print(F("!XS\n\r"));
   download_flag = false;
 }
 
@@ -370,13 +367,13 @@ void download_record(){
 
   data_file.seek(p);
   if (p+6+6*nb_inst < data_file.size()) {
-    B[0] = data_file.read();
-    B[1] = data_file.read();
+    B[0] = (uint8_t) data_file.read();
+    B[1] = (uint8_t)data_file.read();
     if ((B[0] == 0x00) && B[1] == 0x00) { // restart after power interruption or reset
       Serial.write(0xFF);
       Serial.write(0xFF);
       for (int i=0;i<4;i++){
-        B[i] = data_file.read();
+        B[i] = (uint8_t) data_file.read();
       }
       for (int i=0;i<4;i++){
         Serial.write(B[i]);
@@ -392,7 +389,7 @@ void download_record(){
       for (int j=0; j<nb_inst; j++){
         temp = 0UL; // BEWARE OF THE TYPE UL OTHERWISE BITWISE OPERATIONS WILL FAIL
         for (int i=0;i<4;i++){
-          B[i] = data_file.read();
+          B[i] = (uint8_t) data_file.read();
           temp += (uint32_t) B[i] << (8*(3-i));  // counters are stored in SD card as big endian uint32
         }
         temp = temp >> 1; // in nanoDAS, stored uint8_t values in counters are half the counted values !
@@ -460,7 +457,7 @@ void setup()
   //RTC.adjust(DateTime(F(__DATE__), F(__TIME__))); // Do not leave this uncommented otherwise clock time while be resetted to time of last upload each time reset button is pressed
   RTC.writeSqwPinMode(RTC_freq);
 
-  for (int i=0; i<NUMBER_OF_CHANNELS; i++){
+  for (int8_t i=0; i<NUMBER_OF_CHANNELS; i++){
     channel[i] = 0UL;
     previous_count[i] = 0UL;
     current_count[i] = 0UL;
@@ -486,7 +483,7 @@ void setup()
   pinMode(ss_pin, OUTPUT);
 
 
-  int init = 0;
+  uint8_t init = 0;
   for (int i=0; i<NUMBER_OF_COUNTERS; i++){
     init = init << 4;
     init+=7;
@@ -513,11 +510,11 @@ void setup()
   }
   Serial.println(F("Initialization done !"));
   SD.remove(DATA_FILE); // TODO :  remove this line
-  data_file = SD.open(DATA_FILE,FILE_WRITE);
+  data_file = SD.open(DATA_FILE, FILE_WRITE);
   DateTime tic = RTC.now();
   uint32_t t = tic.unixtime();
   t = t + uint32_t(1.5*sampling_rate); // skip first value
-  for(int i=0;i<2;i++){
+  for(uint8_t i=0;i<2;i++){
     record[i]=(uint8_t) 0x00;
   }
   record[2]=(uint8_t) (t >> 24) & 0xFF;
@@ -560,7 +557,7 @@ void loop(){
     first_character = s.substring(0,1);
     if( first_character == "-") {
       String s_netid = s.substring(1,4);
-      int recv_netid = s_netid.toInt();
+      uint8_t recv_netid = (uint8_t) s_netid.toInt();
       if (recv_netid == netid) {
         connect ();
       }
@@ -666,8 +663,8 @@ void loop(){
     // read bytes corresponding to each of the 4 bytes for each counter ([byte 0 of Counter 0, byte 0 of counter 1] than [byte 1 of Counter 0, byte 1 of counter 1] ...)
     for(int i=3;i>=0;i--){
       read_bytes(i);
-      int k = i / BYTES_PER_CHANNEL; // which channel relative to each counter
-      int l = i % BYTES_PER_CHANNEL; // which byte of the channel
+      uint8_t k = i / BYTES_PER_CHANNEL; // which channel relative to each counter
+      uint8_t l = i % BYTES_PER_CHANNEL; // which byte of the channel
       for (int j=0; j<NUMBER_OF_COUNTERS; j++){
         cn=NUMBER_OF_CHANNELS_PER_COUNTER*j+k;
         current_count[cn] += (uint32_t)b[j] << (8 * l);
@@ -705,10 +702,12 @@ void loop(){
           {
             start_flag = false;
           }
-          else if (data_file){
-            data_file.seek(data_file.size());
-            data_file.write(record,30);
-            data_file.flush();
+          else {
+            if (data_file){
+              data_file.seek(data_file.size());
+              data_file.write(record,30);
+              data_file.flush();
+            }
           }
           if (echo != 0){
             Serial.print(F("\n\r"));
