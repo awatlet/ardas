@@ -25,4 +25,7 @@ DIL socket 28 ref: 2453476
 #### others
 Power adaptor 9 to 12V DC, 250mA or more, 2.1mm plug, centre pin positive  
 
+#### FM sensor
+TL750L05CD  IC, V REG +5.0V  ref: 	9593659  http://www.farnell.com/datasheets/1849783.pdf  
+
 
