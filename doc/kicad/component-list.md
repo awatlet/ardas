@@ -11,7 +11,12 @@ MAX232NSR          X1     http://www.farnell.com/datasheets/1885872.pdf
 DS1307ZN+          X1     http://www.farnell.com/datasheets/46359.pdf  
 Quartz ABRACON CRYSTAL, 32.768KHZ, 12.5PF  ref: 2467865  X1 http://www.farnell.com/datasheets/1883680.pdf  
 Battery holder ref: 2064720  
+or
 Battery retainer ref: 1650692  
+
+#### sd shield
+HEF4050BT  ref: 1085285   x1   http://www.farnell.com/datasheets/1758120.pdf  
+MICRO SD, PUSH PUSH ref:  2334075  x1 http://www.farnell.com/datasheets/1717993.pdf  
 
 #### arduino
 Microcontroller ATMEGA328P-PU ref: 1715487  http://www.farnell.com/datasheets/1684409.pdf  
