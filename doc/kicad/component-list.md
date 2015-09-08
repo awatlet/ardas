@@ -24,6 +24,7 @@ MICRO SD, PUSH PUSH ref:  2334075  x1 http://www.farnell.com/datasheets/1717993.
 
 #### FM sensor
 TL750L05CD  IC, V REG +5.0V  ref: 	9593659  http://www.farnell.com/datasheets/1849783.pdf  
+TLC555CD  ref: 	1755233  http://www.farnell.com/datasheets/1834067.pdf  
 
 #### others
 Power adaptor 9 to 12V DC, 250mA or more, 2.1mm plug, centre pin positive  
