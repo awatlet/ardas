@@ -25,6 +25,10 @@ MICRO SD, PUSH PUSH ref:  2334075  x1 http://www.farnell.com/datasheets/1717993.
 #### FM sensor
 TL750L05CD  IC, V REG +5.0V  ref: 	9593659  http://www.farnell.com/datasheets/1849783.pdf  
 TLC555CD  ref: 	1755233  http://www.farnell.com/datasheets/1834067.pdf  
+Surface Mount Tantalum Capacitor, TAJ Series, 10 µF, ± 10%, 6.3 V  ref:1658203   
+Surface Mount Thick Film Resistor, RC Series, 10 kohm, 125 mW, ± 1%  ref:	9237755  
+Surface Mount Tantalum Capacitor, TAJ Series, 0.1 µF, ± 10%, 20 V  ref: 	1135082  
+SMD Multilayer Ceramic Capacitor, VJ?W1BC Series, 0.01 µF, ± 10%  ref: 	9237755  
 
 #### others
 Power adaptor 9 to 12V DC, 250mA or more, 2.1mm plug, centre pin positive  
