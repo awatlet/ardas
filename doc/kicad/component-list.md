@@ -2,7 +2,11 @@
 
 ### Reference 
 
-#### ardas shield
+#### Arduino Uno
+Microcontroller ATMEGA328P-PU ref: 1715487  http://www.farnell.com/datasheets/1684409.pdf  
+DIL socket 28 ref: 2453476  
+
+#### Ardas shield
 SN74LV8154PW       X2     http://www.farnell.com/datasheets/1831074.pdf  
 SN74HC595D         X1     http://www.farnell.com/datasheets/1905810.pdf  
 SN74HC165D         X2     http://www.farnell.com/datasheets/1831348.pdf  
@@ -14,18 +18,16 @@ Battery holder ref: 2064720
 or
 Battery retainer ref: 1650692  
 
-#### sd shield
+#### SD shield
 HEF4050BT  ref: 1085285   x1   http://www.farnell.com/datasheets/1758120.pdf  
 MICRO SD, PUSH PUSH ref:  2334075  x1 http://www.farnell.com/datasheets/1717993.pdf  
 
-#### arduino
-Microcontroller ATMEGA328P-PU ref: 1715487  http://www.farnell.com/datasheets/1684409.pdf  
-DIL socket 28 ref: 2453476  
+#### FM sensor
+TL750L05CD  IC, V REG +5.0V  ref: 	9593659  http://www.farnell.com/datasheets/1849783.pdf  
 
 #### others
 Power adaptor 9 to 12V DC, 250mA or more, 2.1mm plug, centre pin positive  
 
-#### FM sensor
-TL750L05CD  IC, V REG +5.0V  ref: 	9593659  http://www.farnell.com/datasheets/1849783.pdf  
+
 
 
