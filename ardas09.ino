@@ -26,7 +26,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ARDAS 0.9a [2013-2015]"
+#define VERSION "Version ARDAS 0.9b [2013-2015]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -244,27 +244,36 @@ void get_info(){
 
 void connect() {
     Serial.print(F("!HI "));
-    SerialPrintf("%04d %03d %04d %1d 1111 2222 3333 4444 0 0", station, netid, sampling_rate, nb_inst); // TODO implement nb_inst!=4 + memory usage
-    Serial.print(F("\n\r"));
+    SerialPrintf("%04d %03d %04d %1d %04d %04d %04d %04d 0 133256 ", station, netid, sampling_rate, nb_inst, inst[0], inst[1], inst[2], inst[3]); // TODO implement nb_inst!=4 + memory usage
+    Serial.print(F("\n\r\n\r"));
     echo = 2;
 }
 
 void help() {
-    Serial.println(F("\n\rHELP COMMAND :"));
-    Serial.println(F("#E0 : No Echo"));
-    Serial.println(F("#E1 : Only Data"));
-    Serial.println(F("#E2 : Data + Time"));
-    Serial.println(F("#SD yyyy mm dd hh nn ss : Set Date + Time"));
-    Serial.println(F("#SR iiii : Set Integration Period"));
-    Serial.println(F("#SS ssss : Set Station Number"));
-    Serial.println(F("#SI nnn : Set DAS Number"));
-    Serial.println(F("#RI : Read Info"));
-    Serial.println(F("#RV : Read version"));
-    Serial.println(F("#ZR ssss nnn iiii s : Reconfig"));
+    Serial.print(F("\n\rHELP COMMAND :\n\r\n\r"));
+    Serial.print(F("#E0 : No Echo\n\r\n\r"));
+    Serial.print(F("#E1 : Only Data\n\r\n\r"));
+    Serial.print(F("#E2 : Data + Time\n\r\n\r"));
+    Serial.print(F("#SD yyyy mm dd hh nn ss : Set Date + Time\n\r\n\r"));
+    Serial.print(F("#SR iiii : Set Integration Period\n\r\n\r"));
+    Serial.print(F("#SI nnn : Set uDAS Number\n\r\n\r"));
+    Serial.print(F("#SS ssss : Set Station Number\n\r\n\r"));
+    Serial.print(F("#RI : Read Info\n\r\n\r"));
+    Serial.print(F("#RL : Read Last Data\n\r\n\r")); // TODO : implement this
+    Serial.print(F("#RM : Read Memory Status\n\r\n\r")); // TODO : implement this
+    Serial.print(F("#RV : Read version\n\r\n\r")); // NOTE : not present on uDAS v3.05
+    Serial.print(F("#ZR ssss nnn iiii s 1111 2222 3333 4444 XX: Reconfig\n\r\n\r"));
+    Serial.print(F("#XB : Full Download\n\r\n\r"));
+    Serial.print(F("#XP yyyy mm dd hh nn ss yyyy mm dd hh nn ss : Partial Download\n\r\n\r")); // NOTE : implement this
+    Serial.print(F("#XN : Next Download\n\r\n\r")); // NOTE : implement this
+    Serial.print(F("#WB : Write line in workbook\n\r\n\r")); // NOTE : implement this
+    Serial.print(F("#RW : Read workbook\n\r\n\r")); // NOTE : implement this
+    Serial.print(F("#?? : This text\n\r\n\r")); // NOTE : implement this 
+    Serial.print(F("Enter your command : "));
 }
 
 void set_no_echo() {
-    Serial.println(F("\n\r!E0[Echo disabled]\n\r"));
+    Serial.println(F("\n\r!E0 [Echo disabled]\n\r"));
     echo = 0;
 }
 
@@ -357,7 +366,7 @@ void reconfig(String s){ // NOTE : hard coded for 4 instruments
         inst[1] = (uint16_t) s.substring(25,29).toInt();
         inst[2] = (uint16_t) s.substring(30,34).toInt();
         inst[3] = (uint16_t) s.substring(35,39).toInt();
-
+        
 
         EEPROMWriteOnTwoBytes(ADDR_STATION, station);
         EEPROM.write(ADDR_NETID, netid);
@@ -594,10 +603,15 @@ void loop(){
         first_character = s.substring(0,1);
         if( first_character == "-") {
             String s_netid = s.substring(1,4);
-            uint8_t recv_netid = (uint8_t) s_netid.toInt();
-            if (recv_netid == netid) {
+            uint16_t recv_netid = (uint16_t) s_netid.toInt();
+            if (recv_netid == (uint16_t) netid) {
                 connect ();
                 quiet = false;
+            }
+            else if ((uint16_t) recv_netid == (uint16_t) 999) {
+              Serial.print(F("\n\r\n\rHey! I'm ArdDAS "));
+              SerialPrintf("%03d", netid);
+              Serial.print(F("\n\r\n\r"));
             }
             else{
                 quiet = true;
@@ -665,7 +679,7 @@ void loop(){
                         Serial.print(F("Debug mode OFF\n\r"));
                 }
                 else {
-                    Serial.print(F("Unknown command\n\r"));
+                    Serial.print(F("\n\r!ERROR : Unknown Command\n\r\n\r"));
                 }
             }
             if (command == "XS") {
@@ -696,7 +710,7 @@ void loop(){
             DateTime tic = RTC.now();
             Serial.print(F("!"));
             SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
-            Serial.print(F(" \n\r"));
+            Serial.print(F(" \n\r\n\r"));
         }
         for(cn=0; cn < NUMBER_OF_CHANNELS; cn++){
             previous_count[cn]  =  current_count[cn];
@@ -753,7 +767,7 @@ void loop(){
                         }
                     }
                     if (echo != 0){
-                        Serial.print(F("\n\r"));
+                        Serial.print(F("\n\r\n\r"));
                     }
                 }
                 n=0;
