@@ -12,7 +12,7 @@ IN: Enter in the MAX232
 OUT: Out of the MAX232  
 
 R: data received by the Arduino  
-T: data received by the Arduino  
+T: data transmit by the Arduino  
 
 Pin 1 - **C1+**  
 Pin 2 - **Vs+**  
