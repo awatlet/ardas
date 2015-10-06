@@ -30,6 +30,7 @@ Pin 15 of shift register to pin 9 of Arduino (CE)  // activation cp clock
 #### MAX232
 Pin 11 of MAX232 to pin 1 of Arduino (Tx)  
 Pin 12 of MAX232 to pin 0 of Arduino (Rx)  
+Pin 9 of Max232 to pin 3 of Arduino (RTS)
 
 ## Sync the fork
 
