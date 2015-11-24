@@ -5,6 +5,9 @@ Features :
 * Based on [Arduino] (http://arduino.cc/)
 * Simulates a nanoDAS
 
+### Required libraries
+
+* [Adafruit RTClib] (https://github.com/adafruit/RTClib) >= 1.0.0
  
 ### Ardas pin configurations
 
