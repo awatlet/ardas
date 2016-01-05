@@ -26,7 +26,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ARDAS 0.9b [2013-2015]"
+#define VERSION "Version ArDAS 0.9f [UMONS-GFA - 2015]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -85,6 +85,8 @@ uint8_t B[4]; // for reading uint32_t on SD card and reversing bit order
 uint8_t cn = 0;
 uint16_t n = 0;
 boolean start_flag = true;
+boolean peer_download = false;
+uint8_t nfe = 0;
 uint16_t sampling_rate = 2; // integration time in seconds
 Ds1307SqwPinMode modes[] = {SquareWave1HZ, SquareWave4kHz, SquareWave8kHz, SquareWave32kHz};
 Ds1307SqwPinMode RTC_freq;
@@ -102,6 +104,7 @@ String s;
 
 void rtc_interrupt()
 {
+    //noInterrupts(); // TODO : check if needed
     // after each integration period
     if (pulse_counter % COUNTS_BETWEEN_READINGS == 0){
         digitalWrite(rclk_pin, HIGH);
@@ -111,7 +114,7 @@ void rtc_interrupt()
 
     }
     pulse_counter ++;
-
+    //interrupts(); // TODO : check if needed
 }
 
 //void(* reset) (void) = 0;//declare reset function at address 0
@@ -232,21 +235,12 @@ void read_config_or_set_default() {
     }
 }
 
-void get_info(){
-    Serial.print(F(" Station: "));
-    SerialPrintf("%04d", station);
-    Serial.print(F(" DasNo: "));
-    SerialPrintf("%03d", netid);
-    Serial.print(F(" Integration: "));
-    SerialPrintf("%04d", sampling_rate);
-    Serial.print(F("\n\r"));
-}
-
 void connect() {
     Serial.print(F("!HI "));
-    SerialPrintf("%04d %03d %04d %1d %04d %04d %04d %04d 0 133256 ", station, netid, sampling_rate, nb_inst, inst[0], inst[1], inst[2], inst[3]); // TODO implement nb_inst!=4 + memory usage
-    Serial.print(F("\n\r\n\r"));
+    SerialPrintf("%04d %03d %04d %1d %04d %04d %04d %04d 000000 133256 ", station, netid, sampling_rate, nb_inst, inst[0], inst[1], inst[2], inst[3]); // TODO implement nb_inst!=4 + memory usage
+    Serial.print(F("\n\r"));
     echo = 2;
+
 }
 
 void help() {
@@ -311,7 +305,20 @@ void set_date_and_time(String s) {
 
 void get_das_info() {
     Serial.print(F("!RI"));
-    get_info();
+    Serial.print(F(" Station:"));
+    SerialPrintf("%04d", station);
+    Serial.print(F(" DasNo:"));
+    SerialPrintf("%03d", netid);
+    Serial.print(F(" Integration:"));
+    SerialPrintf("%04d", sampling_rate);
+    for (int i=0;i<4;i++){
+      Serial.print(F(" I"));
+      Serial.print(i+1);
+      Serial.print(F(":"));
+      SerialPrintf("%04d",inst[i]);
+    }
+    Serial.print(F(" 367959 3997696 1442365200")); // TODO : manage memory
+    Serial.print(F("\n\r"));
 }
 
 void get_version() {
@@ -357,7 +364,7 @@ void set_sampling_rate(String s) {
 }
 
 void reconfig(String s){ // NOTE : hard coded for 4 instruments
-    if (s.length() == 40) {
+    if (s.length() == 43) {
         station = (uint16_t) s.substring(4, 8).toInt();
         netid = (uint8_t) s.substring(9, 12).toInt();
         sampling_rate = (uint16_t) s.substring(13, 17).toInt();
@@ -367,22 +374,32 @@ void reconfig(String s){ // NOTE : hard coded for 4 instruments
         inst[2] = (uint16_t) s.substring(30,34).toInt();
         inst[3] = (uint16_t) s.substring(35,39).toInt();
 
-
-        EEPROMWriteOnTwoBytes(ADDR_STATION, station);
-        EEPROM.write(ADDR_NETID, netid);
-        EEPROMWriteOnTwoBytes(ADDR_SAMPLING_RATE, sampling_rate);
-        EEPROM.write(ADDR_NB_INST, nb_inst);
-        EEPROMWriteOnTwoBytes(ADDR_I1, inst[0]);
-        EEPROM.write(ADDR_I1, inst[0]);
-        EEPROMWriteOnTwoBytes(ADDR_I2, inst[1]);
-        EEPROM.write(ADDR_I2, inst[1]);
-        EEPROMWriteOnTwoBytes(ADDR_I3, inst[2]);
-        EEPROM.write(ADDR_I3, inst[2]);
-        EEPROMWriteOnTwoBytes(ADDR_I4, inst[3]);
-        EEPROM.write(ADDR_I4, inst[3]);
-        delay(100);
-        Serial.print(F("!ZR"));
-        get_info();
+        if (s.substring(40, 42).toInt() == 31) {
+          EEPROMWriteOnTwoBytes(ADDR_STATION, station);
+          EEPROM.write(ADDR_NETID, netid);
+          EEPROMWriteOnTwoBytes(ADDR_SAMPLING_RATE, sampling_rate);
+          EEPROM.write(ADDR_NB_INST, nb_inst);
+          EEPROMWriteOnTwoBytes(ADDR_I1, inst[0]);
+          EEPROM.write(ADDR_I1, inst[0]);
+          EEPROMWriteOnTwoBytes(ADDR_I2, inst[1]);
+          EEPROM.write(ADDR_I2, inst[1]);
+          EEPROMWriteOnTwoBytes(ADDR_I3, inst[2]);
+          EEPROM.write(ADDR_I3, inst[2]);
+          EEPROMWriteOnTwoBytes(ADDR_I4, inst[3]);
+          EEPROM.write(ADDR_I4, inst[3]);
+          delay(100);
+        }
+        Serial.print(F("!ZR "));
+        SerialPrintf("%04d", station);
+        Serial.print(F(" "));
+        SerialPrintf("%03d", netid);
+        Serial.print(F(" "));
+        SerialPrintf("%04d", sampling_rate);
+        for (int i=0;i<4;i++){
+          Serial.print(F(" "));
+          SerialPrintf("%04d",inst[i]);
+        }
+        Serial.print(F("\n\r"));
         start_flag = true;
     }
     else{
@@ -472,6 +489,32 @@ void full_download(){
     p=0;
 }
 
+DateTime centrage(){
+    DateTime tic = RTC.now().unixtime();
+    uint16_t laps, x;
+
+    laps = sampling_rate/2;
+    laps += sampling_rate%2;
+    x = 3600 - ((tic.minute() *60)+ tic.second()) + laps;
+    laps = x % sampling_rate;
+    Serial.print(F("Secs :"));
+    Serial.println(tic.second());
+    Serial.print(F("S R :"));
+    Serial.println(sampling_rate);
+    Serial.print(F("Laps :"));
+    Serial.println(laps);
+    n=(sampling_rate*READ_COUNTER_REGISTER_FREQ-laps)-2;
+    //delay(1000*laps);
+    start_flag = true;
+    //echo = 2; // TODO : remove this
+    //quiet = false; // TODO : remove this
+    return (DateTime) tic;
+    //*****************************
+    // TODO set n depending on laps
+    //*****************************
+
+}
+
 /***
 SETUP
 ***/
@@ -527,8 +570,10 @@ void setup()
     pinMode(shcp_pin, OUTPUT);
     pinMode(ds_pin, OUTPUT);
     pinMode(ss_pin, OUTPUT);
-
-
+    // DEBUG --->
+    pinMode(17,OUTPUT);
+    pinMode(3,OUTPUT);
+    // DEBUG <---
     uint8_t init = 0;
     for (int i=0; i<NUMBER_OF_COUNTERS; i++){
         init = init << 4;
@@ -551,13 +596,14 @@ void setup()
 
     //Serial.println(F("Initializing SD card ..."));
     if (!SD.begin(cs_pin)) {
-        Serial.println(F("Initialisation failed !"));
+        Serial.println(F("SD card initialisation failed !"));
         return;
     }
     //Serial.println(F("Initialization done !"));
     SD.remove(DATA_FILE); // TODO :  remove this line
     data_file = SD.open(DATA_FILE, FILE_WRITE);
-    DateTime tic = RTC.now();
+    DateTime tic = centrage();
+    //DateTime tic = RTC.now();
     uint32_t t = tic.unixtime();
     t = t + uint32_t(1.5*sampling_rate); // skip first value
     for(uint8_t i=0;i<2;i++){
@@ -572,10 +618,11 @@ void setup()
     }
     data_file.write(record,30);
     data_file.flush();
-    free_ram = freeRam();
+    //free_ram = freeRam();
     //Serial.println(free_ram);
-
     attachInterrupt(0, rtc_interrupt, RISING);
+    digitalWrite(3,HIGH); // TODO : remove this
+    delay(1000); // TODO : remove this
 }
 
 /***
@@ -584,41 +631,73 @@ LOOP
 
 void loop(){
     char c;
-    String command, first_character;
+    String command;
+    char first_character;
 
     // send data only when you receive data:
     int i=0;
+    // DEBUG --->
+    if (quiet) {
+      digitalWrite(17,HIGH);
+    } else {
+      digitalWrite(17,LOW);
+    }
+    // DEBUG <---
+    // DEBUG --->
+    if (peer_download) {
+      digitalWrite(3,HIGH);
+    } else {
+      digitalWrite(3,LOW);
+    }
+    // DEBUG <---
     do {
         if (Serial.available() > 0) {
             // read the incoming bytes
             c = Serial.read();
-            s += c;
+            if (c!='\n') {
+                if (s.length() > 48) {
+                  s="";
+                }
+                else{
+                  s += c;
+                }
+                if (c == char(0xfe)){
+                  nfe += 1;
+                  if (nfe>2){
+                    peer_download = false;
+                    nfe = 0;
+                    s="";
+                  }
+                }
+                else{
+                  nfe = 0;
+                }
+            }
         }
         i+=1;
     }
     while ((c != EOL) && (!read_counter_register));
-
     if (c == EOL){
-        // say hi
-        first_character = s.substring(0,1);
-        if( first_character == "-") {
+        first_character = s[0];
+        if( first_character == '-') {
             String s_netid = s.substring(1,4);
             uint16_t recv_netid = (uint16_t) s_netid.toInt();
-            if (recv_netid == (uint16_t) netid) {
+            if ((recv_netid == (uint16_t) netid) && (!peer_download)) {
                 connect ();
                 quiet = false;
             }
-            else if ((uint16_t) recv_netid == (uint16_t) 999) {
+            else if (recv_netid == (uint16_t) 999) {
+              delay(25*netid);
               Serial.print(F("\n\rHey! I'm ArdDAS "));
               SerialPrintf("%03d", netid);
-              Serial.print(F("\n\r\n\r"));
+              Serial.print(F("\n\r"));
             }
             else{
                 quiet = true;
                 echo=0;
             }
         }
-        else if (first_character == "#") {
+        else if (first_character == '#') {
             command = s.substring(1,3);
             if ((!download_flag) && (!quiet)){
                 if (command == "HE") {
@@ -682,7 +761,10 @@ void loop(){
                     Serial.print(F("\n\r!ERROR : Unknown Command\n\r\n\r"));
                 }
             }
-            if (command == "XS") {
+            if ((command == "XB") && (quiet)) {
+              peer_download = true;
+            }
+            if ((command == "XS") && (!quiet)) {
                 interrupt_download();
             }
         }
@@ -710,7 +792,7 @@ void loop(){
             DateTime tic = RTC.now();
             Serial.print(F("!"));
             SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
-            Serial.print(F(" \n\r\n\r"));
+            Serial.print(F(" \n\r"));
         }
         for(cn=0; cn < NUMBER_OF_CHANNELS; cn++){
             previous_count[cn]  =  current_count[cn];
@@ -767,7 +849,7 @@ void loop(){
                         }
                     }
                     if (echo != 0){
-                        Serial.print(F("\n\r\n\r"));
+                        Serial.print(F("\n\r"));
                     }
                 }
                 n=0;
