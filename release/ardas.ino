@@ -525,7 +525,7 @@ SETUP
 void setup()
 {
     int free_ram;
-    Serial.begin(9600);
+    Serial.begin(57600);
     Serial.flush();
     Wire.begin();
     switch(freq){
@@ -545,8 +545,14 @@ void setup()
             freq = 4096;
             RTC_freq = modes[1];
     }
+
     RTC.begin();
-    //RTC.adjust(DateTime(F(__DATE__), F(__TIME__))); // Do not leave this uncommented otherwise clock time while be resetted to time of last upload each time reset button is pressed
+    if(! RTC.isrunning()){
+        Serial.print(F("RTC is not running"));
+        // following line sets the RTC to the date & time this sketch was compiled
+        RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    }
+
     RTC.writeSqwPinMode(RTC_freq);
 
     for (int8_t i=0; i<NUMBER_OF_CHANNELS; i++){
@@ -600,7 +606,7 @@ void setup()
     //Serial.println(F("Initializing SD card ..."));
     if (!SD.begin(cs_pin)) {
         Serial.println(F("SD card initialisation failed !"));
-        return;
+        //return;
     }
     //Serial.println(F("Initialization done !"));
     SD.remove(DATA_FILE); // TODO :  remove this line
