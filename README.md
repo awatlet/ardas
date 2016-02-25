@@ -37,4 +37,5 @@ Copy the .ino file inside this directory and open it with Clion
 
 Edit the configuration
 
+![](https://github.com/UMONS-GFA/ardas/blob/master/arduino-clion-config.png)
 
