@@ -706,10 +706,10 @@ void loop(){
                     SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
                     Serial.print(F(" "));
                 }
-                if (RaspArDAS_mode) { 
+                if (RaspArDAS_mode) {
                     uint32_t t = tic.unixtime();
                     write_data_header(t);
-                } 
+                }
             }
         }
         else if ((echo == 2) && ((n % READ_COUNTER_REGISTER_FREQ) == 0 )) {
@@ -743,7 +743,7 @@ void loop(){
             if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
                 if (!start_flag){
                     uint32_t x = channel[cn];
-                    if (RaspArDAS_mode) { 
+                    if (RaspArDAS_mode) {
                         int u = 6+2*nb_inst+cn*4;
                         record[u]=(uint8_t) (x >> 24) & 0xFF;
                         record[u+1]=(uint8_t) (x >> 16) & 0xFF;
