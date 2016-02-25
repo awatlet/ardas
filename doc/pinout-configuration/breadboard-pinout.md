@@ -1,4 +1,4 @@
-### Ardas pin configurations
+### Breadboard to Arduino pinout
 
 #### RTC
 Pin 5 of RTC(SDA) to pin 18(A4) of Arduino for I2C  
