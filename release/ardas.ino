@@ -20,7 +20,6 @@
 #include <Wire.h>
 #include <RTClib.h>
 #include <EEPROM.h>
-#include <SD.h>
 #include <SPI.h>
 #include <avr/wdt.h>
 
@@ -39,10 +38,6 @@
 #define ADDR_I4 13
 #define PEER_DOWNLOAD_MODE 16
 #define QUIET_MODE 17
-
-#define DATA_FILE "data.raw"
-
-File data_file;
 
 const uint16_t COUNTS_BETWEEN_READINGS = CLOCK_FREQ / READ_COUNTER_REGISTER_FREQ;
 const uint8_t NUMBER_OF_COUNTERS = 2; // 32 bits counters
@@ -71,9 +66,7 @@ const uint8_t ce_pin = 9;         // activation cp clock
 const uint8_t stcp_pin = 6;       // pin connected to ST_CP of 74HC595
 const uint8_t shcp_pin = 3;       // pin connected to SH_CP of 74HC595
 const uint8_t ds_pin = 5;         // pin connected to DS of 74HC595
-/* SD card */
-const uint8_t ss_pin = 10;         // pin reserved for SD card output
-const uint8_t cs_pin = 4;      // CS pin for SD card (4 on Ethernet shield)
+
 
 //others
 volatile uint16_t pulse_counter = 0;
@@ -100,7 +93,6 @@ uint16_t station;
 uint16_t inst[NUMBER_OF_CHANNELS];
 uint8_t echo = 0;
 boolean download_flag = false;
-uint32_t p; // current position in the data_file
 uint8_t record[30];
 
 String s;
@@ -123,7 +115,6 @@ void rtc_interrupt()
 //void(* reset) (void) = 0;//declare reset function at address 0
 /* alternative possibly better one using the watchdog...
 check ram usage...
-#include <avr/wdt.h>
 */
 void software_reset()
 {
@@ -428,70 +419,6 @@ void write_data_header(uint32_t t){
     }
 }
 
-void download_record(){
-    uint32_t temp;
-
-    data_file.seek(p);
-    if (p+6+6*nb_inst < data_file.size()) {
-        B[0] = (uint8_t) data_file.read();
-        B[1] = (uint8_t)data_file.read();
-        if ((B[0] == 0x00) && B[1] == 0x00) { // restart after power interruption or reset
-            Serial.write(0xFF);
-            Serial.write(0xFF);
-            for (int i=0;i<4;i++){
-                B[i] = (uint8_t) data_file.read();
-            }
-            for (int i=0;i<4;i++){
-                Serial.write(B[i]);
-            }
-            for (int i=0;i<3*nb_inst-6;i++){
-                Serial.write(0x00);
-            }
-            p+=6+6*nb_inst;
-        }
-        else {
-            p+=6+2*nb_inst;
-            data_file.seek(p);
-            for (int j=0; j<nb_inst; j++){
-                temp = 0UL; // BEWARE OF THE TYPE UL OTHERWISE BITWISE OPERATIONS WILL FAIL
-                for (int i=0;i<4;i++){
-                    B[i] = (uint8_t) data_file.read();
-                    temp += (uint32_t) B[i] << (8*(3-i));  // counters are stored in SD card as big endian uint32
-                }
-                temp = temp >> 1; // in nanoDAS, stored uint8_t values in counters are half the counted values !
-                for (int i=3;i>=0;i--){
-                    B[i] = (uint8_t) temp % 256;
-                    temp = temp >> 8;
-                }
-                for (int i=1;i<4;i++){
-                    Serial.write(B[i]); // Write 3 bytes per channel in little endian
-                }
-            }
-            p+=4*nb_inst;
-        }
-    }
-    else if (p+6+6*nb_inst == data_file.size()){
-        for (int i=0;i<3*nb_inst; i++){
-            Serial.write(0xFE);
-        }
-        download_flag = false;
-    }
-    else {
-        Serial.print(F("incorrect file size ! "));
-        Serial.println(data_file.size());
-        Serial.println(p);
-    }
-}
-
-void full_download(){
-
-    echo=0;
-    download_flag = true;
-    for (int i=0;i<3*nb_inst; i++)
-        Serial.write(0xFD);
-    p=0;
-}
-
 DateTime centrage(){
     DateTime tic = RTC.now().unixtime();
     uint16_t laps, x;
@@ -500,12 +427,15 @@ DateTime centrage(){
     laps += sampling_rate%2;
     x = 3600 - ((tic.minute() *60)+ tic.second()) + laps;
     laps = x % sampling_rate;
-    Serial.print(F("Secs :"));
-    Serial.println(tic.second());
-    Serial.print(F("S R :"));
-    Serial.println(sampling_rate);
-    Serial.print(F("Laps :"));
-    Serial.println(laps);
+    if(DEBUG){
+        Serial.print(F("Secs :"));
+        Serial.println(tic.second());
+        Serial.print(F("S R :"));
+        Serial.println(sampling_rate);
+        Serial.print(F("Laps :"));
+        Serial.println(laps);
+    }
+
     n=(sampling_rate*READ_COUNTER_REGISTER_FREQ-laps)-2;
     //delay(1000*laps);
     start_flag = true;
@@ -578,7 +508,6 @@ void setup()
     pinMode(stcp_pin, OUTPUT);
     pinMode(shcp_pin, OUTPUT);
     pinMode(ds_pin, OUTPUT);
-    pinMode(ss_pin, OUTPUT);
     // DEBUG --->
     pinMode(QUIET_MODE,OUTPUT);
     pinMode(PEER_DOWNLOAD_MODE,OUTPUT);
@@ -603,14 +532,9 @@ void setup()
     read_config_or_set_default();
     //connect_id = String("-") + String(netid);
 
-    //Serial.println(F("Initializing SD card ..."));
-    if (!SD.begin(cs_pin)) {
-        Serial.println(F("SD card initialisation failed !"));
-        //return;
-    }
-    //Serial.println(F("Initialization done !"));
-    SD.remove(DATA_FILE); // TODO :  remove this line
-    data_file = SD.open(DATA_FILE, FILE_WRITE);
+
+
+
     DateTime tic = centrage();
     //DateTime tic = RTC.now();
     uint32_t t = tic.unixtime();
@@ -625,10 +549,8 @@ void setup()
     for(int i=6;i<30;i++){
         record[i]=(uint8_t) 0x00;
     }
-    data_file.write(record,30);
-    data_file.flush();
     //free_ram = freeRam();
-    //Serial.println(free_ram);
+    Serial.println(free_ram);
     attachInterrupt(0, rtc_interrupt, RISING);
     digitalWrite(PEER_DOWNLOAD_MODE,LOW);
     delay(1000); // TODO : remove this
@@ -743,21 +665,12 @@ void loop(){
                     reconfig(s);
                 }
                 else if (command == "ZF") { // TODO : Full ZF implementation to be done...
-                    if (data_file){
-                        data_file.close();
-                        SD.remove(DATA_FILE);
-                    }
                     software_reset();
                 }
                 else if (command == "XB") {
-                    full_download();
+                    //full_download();
                 }
                 else if (command == "XS") {
-                }
-                else if (command == "EL") {
-                    data_file.flush();
-                    data_file.close();
-                    Serial.print(F("Logging ended : you can safely remove the SD card... \n\r"));
                 }
                 else if (command == "DG") {
                     DEBUG = !DEBUG;
@@ -790,10 +703,6 @@ void loop(){
                     Serial.print(F("*"));
                     SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
                     Serial.print(F(" "));
-                }
-                if (data_file) {
-                    uint32_t t = tic.unixtime();
-                    write_data_header(t);
                 }
             }
         }
@@ -828,13 +737,13 @@ void loop(){
             if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
                 if (!start_flag){
                     uint32_t x = channel[cn];
-                    if (data_file){
-                        int u = 6+2*nb_inst+cn*4;
-                        record[u]=(uint8_t) (x >> 24) & 0xFF;
-                        record[u+1]=(uint8_t) (x >> 16) & 0xFF;
-                        record[u+2]=(uint8_t) (x >> 8) & 0xFF;
-                        record[u+3]=(uint8_t) x & 0xFF;
-                    }
+
+                    int u = 6+2*nb_inst+cn*4;
+                    record[u]=(uint8_t) (x >> 24) & 0xFF;
+                    record[u+1]=(uint8_t) (x >> 16) & 0xFF;
+                    record[u+2]=(uint8_t) (x >> 8) & 0xFF;
+                    record[u+3]=(uint8_t) x & 0xFF;
+
                     float xf = channel[cn]/(1.0*sampling_rate);
                     uint32_t dc = floor(xf);
                     uint16_t fc = floor((xf-(float)dc)*10000.0);
@@ -850,13 +759,6 @@ void loop(){
                     {
                         start_flag = false;
                     }
-                    else {
-                        if (data_file){
-                            data_file.seek(data_file.size());
-                            data_file.write(record,30);
-                            data_file.flush();
-                        }
-                    }
                     if (echo != 0){
                         Serial.print(F("\n\r"));
                     }
@@ -867,6 +769,6 @@ void loop(){
         read_counter_register = false;
     }
     if (download_flag){
-        download_record();
+        //download_record();
     }
 }
