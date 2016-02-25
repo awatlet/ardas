@@ -20,13 +20,12 @@
 #include <Wire.h>
 #include <RTClib.h>
 #include <EEPROM.h>
-#include <SPI.h>
 #include <avr/wdt.h>
 
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ArDAS 0.9g [UMONS-GFA - 2016]"
+#define VERSION "Version ArDAS 0.9h [UMONS-GFA - 2016]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -82,6 +81,7 @@ uint8_t cn = 0;
 uint16_t n = 0;
 boolean start_flag = true;
 boolean peer_download = false;
+boolean RaspArDAS_mode = false;
 uint8_t nfe = 0;
 uint16_t sampling_rate = 2; // integration time in seconds
 Ds1307SqwPinMode modes[] = {SquareWave1HZ, SquareWave4kHz, SquareWave8kHz, SquareWave32kHz};
@@ -454,7 +454,6 @@ SETUP
 
 void setup()
 {
-    int free_ram;
     Serial.begin(57600);
     Serial.flush();
     Wire.begin();
@@ -549,8 +548,6 @@ void setup()
     for(int i=6;i<30;i++){
         record[i]=(uint8_t) 0x00;
     }
-    //free_ram = freeRam();
-    Serial.println(free_ram);
     attachInterrupt(0, rtc_interrupt, RISING);
     digitalWrite(PEER_DOWNLOAD_MODE,LOW);
     delay(1000); // TODO : remove this
@@ -643,6 +640,12 @@ void loop(){
                 else if (command == "E2") {
                     set_echo_data_and_time();
                 }
+                else if (command == "RD") {
+                    RaspArDAS_mode = true;
+                }
+                else if (command == "ND") {
+                    RaspArDAS_mode = false;
+                }
                 else if (command == "RI") {
                     get_das_info();
                 }
@@ -704,6 +707,10 @@ void loop(){
                     SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
                     Serial.print(F(" "));
                 }
+                if (RaspArDAS_mode) { 
+                    uint32_t t = tic.unixtime();
+                    write_data_header(t);
+                } 
             }
         }
         else if ((echo == 2) && ((n % READ_COUNTER_REGISTER_FREQ) == 0 )) {
@@ -737,13 +744,13 @@ void loop(){
             if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
                 if (!start_flag){
                     uint32_t x = channel[cn];
-
-                    int u = 6+2*nb_inst+cn*4;
-                    record[u]=(uint8_t) (x >> 24) & 0xFF;
-                    record[u+1]=(uint8_t) (x >> 16) & 0xFF;
-                    record[u+2]=(uint8_t) (x >> 8) & 0xFF;
-                    record[u+3]=(uint8_t) x & 0xFF;
-
+                    if (RaspArDAS_mode) { 
+                        int u = 6+2*nb_inst+cn*4;
+                        record[u]=(uint8_t) (x >> 24) & 0xFF;
+                        record[u+1]=(uint8_t) (x >> 16) & 0xFF;
+                        record[u+2]=(uint8_t) (x >> 8) & 0xFF;
+                        record[u+3]=(uint8_t) x & 0xFF;
+                    }
                     float xf = channel[cn]/(1.0*sampling_rate);
                     uint32_t dc = floor(xf);
                     uint16_t fc = floor((xf-(float)dc)*10000.0);
@@ -759,6 +766,17 @@ void loop(){
                     {
                         start_flag = false;
                     }
+                    else {
+                      if (RaspArDAS_mode) {
+                        digitalWrite(QUIET_MODE,quiet);
+                        Serial.write(0x24);
+                        for (int j=0;j<30;j++){
+                          Serial.write(record[j]);
+                        }
+                        digitalWrite(QUIET_MODE, !quiet);
+                        //Serial.print(F("\n\r"));
+                      }
+                    }
                     if (echo != 0){
                         Serial.print(F("\n\r"));
                     }
@@ -767,8 +785,5 @@ void loop(){
             }
         }
         read_counter_register = false;
-    }
-    if (download_flag){
-        //download_record();
     }
 }
