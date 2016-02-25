@@ -9,7 +9,7 @@ link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
 set(${CMAKE_PROJECT_NAME}_SKETCH i2c-scanner.ino)
 
 generate_arduino_firmware(${CMAKE_PROJECT_NAME}
-        SERIAL cutecom @SERIAL_PORT@ -b 9600 -l
+        SERIAL picocom @SERIAL_PORT@ -b 57600 -l
         PORT  /dev/ttyACM0
         BOARD uno
 )
