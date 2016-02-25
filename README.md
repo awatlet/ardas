@@ -35,26 +35,4 @@ Pin 11 of MAX232 to pin 1 of Arduino (Tx)
 Pin 12 of MAX232 to pin 0 of Arduino (Rx)  
 Pin 9 of Max232 to pin 3 of Arduino (RTS)
 
-## Sync the fork
-
-List the current configured remote repository for your fork.  
-```
-$ git remote -v
-```
-
-Specify a new remote upstream repository that will be synced with the fork.  
-```
-$ git remote add upstream https://github.com/UMONS-GFA/ardas.git
-```
-
-Fetch the branches and their respective commits from the upstream repository. Commits to master will be stored in a local branch, upstream/master.  
-```
-$ git fetch upstream
-```
-
-Merge the changes from upstream/master into your local master branch. This brings your fork's master branch into sync with the upstream repository, without losing your local changes.  
-```
-$ git merge upstream/master
-```
- 
 
