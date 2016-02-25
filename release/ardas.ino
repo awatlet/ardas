@@ -1,5 +1,6 @@
+/*** ##### WARNING : to be used with Ardas_shield 01_2016 ##### ***/
 /***
-    Copyright (C) 2013-2015 UMONS
+    Copyright (C) 2013-2016 UMONS
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,7 +27,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ArDAS 0.9f [UMONS-GFA - 2015]"
+#define VERSION "Version ArDAS 0.9g [UMONS-GFA - 2016]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -36,6 +37,8 @@
 #define ADDR_I2 9
 #define ADDR_I3 11
 #define ADDR_I4 13
+#define PEER_DOWNLOAD_MODE 16
+#define QUIET_MODE 17
 
 #define DATA_FILE "data.raw"
 
@@ -58,16 +61,16 @@ RTC_DS1307 RTC;
 // Don't forget to connect I2C pins A4 and A5 (5 and 6 of RTC)
 // rtc_pulse on pin 2 for interrupt 0
 /* SN74LV8054 */
-const uint8_t rclk_pin = 5;       // set selected byte to output
+const uint8_t rclk_pin = 14;       // set selected byte to output
 /* 74HC165N */
 const uint8_t pl_pin = 8;         // latch pin
-const uint8_t cp_pin = 6;         // clock for synchronous communication
+const uint8_t cp_pin = 15;         // clock for synchronous communication
 const uint8_t q7_pin = 7;         // serial output
 const uint8_t ce_pin = 9;         // activation cp clock
 /* 74HC595N */
-const uint8_t stcp_pin = 15;       // pin connected to ST_CP of 74HC595
-const uint8_t shcp_pin = 16;       // pin connected to SH_CP of 74HC595
-const uint8_t ds_pin = 14;         // pin connected to DS of 74HC595
+const uint8_t stcp_pin = 6;       // pin connected to ST_CP of 74HC595
+const uint8_t shcp_pin = 3;       // pin connected to SH_CP of 74HC595
+const uint8_t ds_pin = 5;         // pin connected to DS of 74HC595
 /* SD card */
 const uint8_t ss_pin = 10;         // pin reserved for SD card output
 const uint8_t cs_pin = 4;      // CS pin for SD card (4 on Ethernet shield)
@@ -571,8 +574,8 @@ void setup()
     pinMode(ds_pin, OUTPUT);
     pinMode(ss_pin, OUTPUT);
     // DEBUG --->
-    pinMode(17,OUTPUT);
-    pinMode(3,OUTPUT);
+    pinMode(QUIET_MODE,OUTPUT);
+    pinMode(PEER_DOWNLOAD_MODE,OUTPUT);
     // DEBUG <---
     uint8_t init = 0;
     for (int i=0; i<NUMBER_OF_COUNTERS; i++){
@@ -621,7 +624,7 @@ void setup()
     //free_ram = freeRam();
     //Serial.println(free_ram);
     attachInterrupt(0, rtc_interrupt, RISING);
-    digitalWrite(3,HIGH); // TODO : remove this
+    digitalWrite(PEER_DOWNLOAD_MODE,LOW);
     delay(1000); // TODO : remove this
 }
 
@@ -638,16 +641,16 @@ void loop(){
     int i=0;
     // DEBUG --->
     if (quiet) {
-      digitalWrite(17,HIGH);
+      digitalWrite(QUIET_MODE,LOW);
     } else {
-      digitalWrite(17,LOW);
+      digitalWrite(QUIET_MODE,HIGH);
     }
     // DEBUG <---
     // DEBUG --->
     if (peer_download) {
-      digitalWrite(3,HIGH);
+      digitalWrite(PEER_DOWNLOAD_MODE,LOW);
     } else {
-      digitalWrite(3,LOW);
+      digitalWrite(PEER_DOWNLOAD_MODE,HIGH);
     }
     // DEBUG <---
     do {
