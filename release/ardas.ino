@@ -76,7 +76,6 @@ uint32_t counter_overflow;
 uint32_t previous_count[NUMBER_OF_CHANNELS];
 uint32_t current_count[NUMBER_OF_CHANNELS];
 uint8_t b[NUMBER_OF_COUNTERS]; // incoming bytes
-uint8_t B[4]; // for reading uint32_t on SD card and reversing bit order
 uint8_t cn = 0;
 uint16_t n = 0;
 boolean start_flag = true;
