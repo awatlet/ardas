@@ -799,7 +799,7 @@ void loop(){
         }
         for(cn=0; cn < NUMBER_OF_CHANNELS; cn++){
             previous_count[cn]  =  current_count[cn];
-            current_count[cn] = 0;
+            current_count[cn] = 0UL;
         }
         // read bytes corresponding to each of the 4 bytes for each counter ([byte 0 of Counter 0, byte 0 of counter 1] than [byte 1 of Counter 0, byte 1 of counter 1] ...)
         for(int i=3;i>=0;i--){
