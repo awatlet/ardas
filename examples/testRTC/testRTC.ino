@@ -1,16 +1,33 @@
-// SQW/OUT signal functions using a DS1307 RTC connected via I2C and Wire lib.
-// 2012-11-14 idreammicro.com http://opensource.org/licenses/mit-license.php
-
 #include <Wire.h>
 #include <RTClib.h>
 
+#define CLOCK_FREQ 4096
+
+int freq = CLOCK_FREQ;
+
 RTC_DS1307 RTC;
+
+// Pins
+/* RTC */
+// Don't forget to connect I2C pins A4 and A5 (5 and 6 of RTC)
+const byte rtc_pulse_pin = 2;
+
 Ds1307SqwPinMode modes[] = {SquareWave1HZ, SquareWave4kHz, SquareWave8kHz, SquareWave32kHz};
 Ds1307SqwPinMode RTC_freq;
 
-int freq = 8192;
+void SerialPrintf(char *format,...)
+{
+    char buff[128];
+    va_list args;
+    va_start (args,format);
+    vsnprintf(buff,sizeof(buff),format,args);
+    va_end (args);
+    buff[sizeof(buff)/sizeof(buff[0])-1]='\0';
+    Serial.print(buff);
+}
 
-void setup () {
+void setup()
+{
     Serial.begin(57600);
     Wire.begin();
     switch(freq){
@@ -31,12 +48,23 @@ void setup () {
             RTC_freq = modes[1];
     }
     RTC.begin();
-    // Synchronise clock to make sure it's running
-    RTC.adjust(DateTime(__DATE__, __TIME__));
-    // Set SQW/Out signal frequency to 8192 Hz.
+    if (!RTC.isrunning()){
+        Serial.println("RTC is not running");
+        // following line sets the RTC to the date & time this sketch was compiled
+        RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    }
+
+
     RTC.writeSqwPinMode(RTC_freq);
 }
 
-void loop () {
-    // Nothing to do.
+void loop(){
+    DateTime nowt = RTC.now();
+    DateTime tic = nowt.unixtime() - uint32_t(2.0/2.0);
+    //DateTime tic = RTC.now();
+    Serial.println(tic.unixtime());
+    SerialPrintf("*%4d %02d %02d %02d %02d %02d ",nowt.year(),nowt.month(),nowt.day(),tic.hour(),nowt.minute(),nowt.second());
+    SerialPrintf("*%4d %02d %02d %02d %02d %02d ",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
+    Serial.println("");
+    delay(1000);
 }
