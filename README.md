@@ -8,53 +8,34 @@ Features :
 ### Required libraries
 
 * [Adafruit RTClib] (https://github.com/adafruit/RTClib) >= 1.0.0
- 
-### Ardas pin configurations
 
-#### RTC
-Pin 5 of RTC(SDA) to pin 18(A4) of Arduino for I2C  
-Pin 6 of RTC(SCL) to pin 19(A5) of Arduino for I2C  
-Pin 7 of RTC to pin 2 of Arduino for interrupt 0  
+## How to use it with Clion
 
-#### Shift register 74HC595 serial to parallel
-Pin 12 of shift register to pin 15 of Arduino (STCP)    
-Pin 11 of shift register to pin 16 of Arduino (SHCP)    
-Pin 14 of shift register to pin 14 of Arduino (DS)    
+Install required packages
 
-#### Counter
-Pin 7 of counter to pin 5 of Arduino (RCLK) to save to registers  
+    sudo apt-get install arduino cmake gcc-avr binutils-avr avr-libc avrdude
+    
+Create a directory for your Clion project
 
-#### Shift register 74HC165 parallel to serial
-Pin 1 of shift register to pin 8 of Arduino (PL)     // latch pin  
-Pin 2 of shift register to pin 6 of Arduino (CP)    // clock for synchronous communcation  
-Pin 9 of shift register to pin 7 of Arduino (Q7)    // serial output  
-Pin 15 of shift register to pin 9 of Arduino (CE)  // activation cp clock  
+Put the [arduino cmake directory](https://github.com/queezythegreat/arduino-cmake) inside this directory
 
-#### MAX232
-Pin 11 of MAX232 to pin 1 of Arduino (Tx)  
-Pin 12 of MAX232 to pin 0 of Arduino (Rx)  
-Pin 9 of Max232 to pin 3 of Arduino (RTS)
+Create a CMakeLists.txt and modify it to your needs
 
-## Sync the fork
+    cmake_minimum_required(VERSION 2.8)
+    set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/ArduinoToolchain.cmake)
+    set(PROJECT_NAME ardas)
+    project(${PROJECT_NAME})
+    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
+    set(${CMAKE_PROJECT_NAME}_SKETCH ardas.ino)
+    generate_arduino_firmware(${CMAKE_PROJECT_NAME}
+        SERIAL cutecom @SERIAL_PORT@ -b 9600 -l
+        PORT  /dev/ttyACM0
+        BOARD uno
+    )
 
-List the current configured remote repository for your fork.  
-```
-$ git remote -v
-```
+Copy the .ino file inside this directory and open it with Clion
 
-Specify a new remote upstream repository that will be synced with the fork.  
-```
-$ git remote add upstream https://github.com/UMONS-GFA/ardas.git
-```
+Edit the configuration
 
-Fetch the branches and their respective commits from the upstream repository. Commits to master will be stored in a local branch, upstream/master.  
-```
-$ git fetch upstream
-```
-
-Merge the changes from upstream/master into your local master branch. This brings your fork's master branch into sync with the upstream repository, without losing your local changes.  
-```
-$ git merge upstream/master
-```
- 
+![](https://github.com/UMONS-GFA/ardas/blob/master/arduino-clion-config.png)
 

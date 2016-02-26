@@ -25,7 +25,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ArDAS 0.9j [UMONS-GFA - 2016]"
+#define VERSION "Version ArDAS 0.9h [UMONS-GFA - 2016]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -35,8 +35,6 @@
 #define ADDR_I2 9
 #define ADDR_I3 11
 #define ADDR_I4 13
-#define ADDR_RASPARDAS_MODE 15
-
 #define PEER_DOWNLOAD_MODE 16
 #define QUIET_MODE 17
 
@@ -82,7 +80,7 @@ uint8_t cn = 0;
 uint16_t n = 0;
 boolean start_flag = true;
 boolean peer_download = false;
-boolean raspardas_mode = false;
+boolean RaspArDAS_mode = false;
 uint8_t nfe = 0;
 uint16_t sampling_rate = 2; // integration time in seconds
 Ds1307SqwPinMode modes[] = {SquareWave1HZ, SquareWave4kHz, SquareWave8kHz, SquareWave32kHz};
@@ -95,8 +93,6 @@ uint16_t inst[NUMBER_OF_CHANNELS];
 uint8_t echo = 0;
 boolean download_flag = false;
 uint8_t record[30];
-uint32_t dc[NUMBER_OF_CHANNELS];
-uint32_t fc[NUMBER_OF_CHANNELS];
 
 String s;
 
@@ -160,13 +156,6 @@ void read_shift_regs()
     }
 }
 
-void digitalSerialWrite(uint8_t Val)
-{
-    digitalWrite(stcp_pin, LOW);
-    shiftOut(ds_pin, shcp_pin, MSBFIRST, Val);
-    digitalWrite(stcp_pin, HIGH);
-}
-
 void read_bytes(uint8_t byte_number) {
     uint8_t val;
 
@@ -188,6 +177,13 @@ void read_bytes(uint8_t byte_number) {
     delayMicroseconds(PULSE_WIDTH_USEC);
     read_shift_regs();
     delayMicroseconds(PULSE_WIDTH_USEC);
+}
+
+void digitalSerialWrite(uint8_t Val)
+{
+    digitalWrite(stcp_pin, LOW);
+    shiftOut(ds_pin, shcp_pin, MSBFIRST, Val);
+    digitalWrite(stcp_pin, HIGH);
 }
 
 // µDAS interface
@@ -318,10 +314,6 @@ void get_das_info() {
     Serial.print(F("\n\r"));
 }
 
-void get_raspardas_mode(){
-    raspardas_mode = EEPROM.read(ADDR_RASPARDAS_MODE);
-}
-
 void get_version() {
     Serial.print(F("!RV "));
     Serial.print(VERSION);
@@ -362,11 +354,6 @@ void set_sampling_rate(String s) {
     Serial.print(F("!SR "));
     SerialPrintf("%04d", sampling_rate);
     Serial.print(F("\n\r"));
-}
-
-void set_raspardas_mode(boolean val){
-    EEPROM.write(ADDR_RASPARDAS_MODE, val);
-    raspardas_mode = val;
 }
 
 void reconfig(String s){ // NOTE : hard coded for 4 instruments
@@ -469,7 +456,6 @@ void setup()
     Serial.begin(57600);
     Serial.flush();
     Wire.begin();
-
     switch(freq){
         case 1:
             RTC_freq = modes[0];
@@ -542,7 +528,6 @@ void setup()
 
     // µDAS interface
     read_config_or_set_default();
-    get_raspardas_mode();
     //connect_id = String("-") + String(netid);
 
 
@@ -580,9 +565,9 @@ void loop(){
     int i=0;
     // DEBUG --->
     if (quiet) {
-      digitalWrite(QUIET_MODE,HIGH);
-    } else {
       digitalWrite(QUIET_MODE,LOW);
+    } else {
+      digitalWrite(QUIET_MODE,HIGH);
     }
     // DEBUG <---
     // DEBUG --->
@@ -655,10 +640,10 @@ void loop(){
                     set_echo_data_and_time();
                 }
                 else if (command == "RD") {
-                    set_raspardas_mode(true);
+                    RaspArDAS_mode = true;
                 }
                 else if (command == "ND") {
-                    set_raspardas_mode(false);
+                    RaspArDAS_mode = false;
                 }
                 else if (command == "RI") {
                     get_das_info();
@@ -712,21 +697,25 @@ void loop(){
 
     if(read_counter_register){
         n += 1;
-        DateTime tic = RTC.now().unixtime() - uint32_t(sampling_rate/2.0); // read time on RTC and substract half of the integration period
         if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
             //DateTime now = RTC.now();
+            DateTime tic = RTC.now().unixtime() - uint32_t(sampling_rate/2.0); // read time on RTC and substract half of the integration period
             if (!start_flag){
                 if (echo != 0){
                     Serial.print(F("*"));
                     SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
                     Serial.print(F(" "));
                 }
+                if (RaspArDAS_mode) {
+                    uint32_t t = tic.unixtime();
+                    write_data_header(t);
+                }
             }
         }
         else if ((echo == 2) && ((n % READ_COUNTER_REGISTER_FREQ) == 0 )) {
-            DateTime toc = RTC.now();
+            DateTime tic = RTC.now();
             Serial.print(F("!"));
-            SerialPrintf("%4d %02d %02d %02d %02d %02d",toc.year(),toc.month(),toc.day(),toc.hour(),toc.minute(),toc.second());
+            SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
             Serial.print(F(" \n\r"));
         }
         for(cn=0; cn < NUMBER_OF_CHANNELS; cn++){
@@ -754,11 +743,18 @@ void loop(){
             if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
                 if (!start_flag){
                     uint32_t x = channel[cn];
+                    if (RaspArDAS_mode) {
+                        int u = 6+2*nb_inst+cn*4;
+                        record[u]=(uint8_t) (x >> 24) & 0xFF;
+                        record[u+1]=(uint8_t) (x >> 16) & 0xFF;
+                        record[u+2]=(uint8_t) (x >> 8) & 0xFF;
+                        record[u+3]=(uint8_t) x & 0xFF;
+                    }
                     float xf = channel[cn]/(1.0*sampling_rate);
-                    dc[cn] = floor(xf);
-                    fc[cn] = floor((xf-(float)dc[cn])*10000.0);
+                    uint32_t dc = floor(xf);
+                    uint16_t fc = floor((xf-(float)dc)*10000.0);
                     if (echo != 0){
-                        SerialPrintf("%06lu.%04d",dc[cn],fc[cn]);
+                        SerialPrintf("%06lu.%04d",dc,fc);
                         Serial.print(F(" "));
                     }
                 }
@@ -770,21 +766,14 @@ void loop(){
                         start_flag = false;
                     }
                     else {
-                      if (raspardas_mode) {
-                        digitalWrite(QUIET_MODE,!quiet);
+                      if (RaspArDAS_mode) {
+                        digitalWrite(QUIET_MODE,quiet);
                         Serial.write(0x24);
-                        SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
-                        Serial.print(F(" "));
-                        SerialPrintf("%4d",sampling_rate);
-                        Serial.print(F(" "));
-                        for (i=0;i<NUMBER_OF_CHANNELS;i++) {
-                          SerialPrintf("%4d", inst[i]);
-                          Serial.print(F(" "));
-                          SerialPrintf("%06lu.%04d",dc[i],fc[i]);
-                          Serial.print(F(" "));
+                        for (int j=0;j<30;j++){
+                          Serial.write(record[j]);
                         }
-                        Serial.print(F("\n\r"));
-                        digitalWrite(QUIET_MODE, quiet);
+                        digitalWrite(QUIET_MODE, !quiet);
+                        //Serial.print(F("\n\r"));
                       }
                     }
                     if (echo != 0){
