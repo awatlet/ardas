@@ -319,7 +319,13 @@ void get_das_info() {
 }
 
 void get_raspardas_mode(){
-    raspardas_mode = EEPROM.read(ADDR_RASPARDAS_MODE);
+    byte val = EEPROM.read(ADDR_RASPARDAS_MODE);
+    if (val == 0xFF){
+        raspardas_mode = true;
+    }
+    else {
+        raspardas_mode = false;
+    }
 }
 
 void get_version() {
@@ -365,7 +371,12 @@ void set_sampling_rate(String s) {
 }
 
 void set_raspardas_mode(boolean val){
-    EEPROM.write(ADDR_RASPARDAS_MODE, val);
+    if (val) {
+        EEPROM.write(ADDR_RASPARDAS_MODE, 0xFF);
+    }
+    else {
+        EEPROM.write(ADDR_RASPARDAS_MODE, 0x00);
+    }
     raspardas_mode = val;
 }
 
@@ -416,19 +427,6 @@ void reconfig(String s){ // NOTE : hard coded for 4 instruments
 void interrupt_download(){
     Serial.print(F("!XS\n\r"));
     download_flag = false;
-}
-
-void write_data_header(uint32_t t){
-    record[0]=(uint8_t) (sampling_rate >> 8) & 0xFF;
-    record[1]=(uint8_t) sampling_rate & 0xFF;
-    record[2]=(uint8_t) (t >> 24) & 0xFF;
-    record[3]=(uint8_t) (t >> 16) & 0xFF;
-    record[4]=(uint8_t) (t >> 8) & 0xFF;
-    record[5]=(uint8_t) t & 0xFF;
-    for (int i=1;i<=nb_inst;i++){
-        record[4+2*i]=(uint8_t) (station >> 8) & 0xFF;
-        record[4+2*i+1]=(uint8_t) station & 0xFF;
-    }
 }
 
 DateTime centrage(){
@@ -547,18 +545,6 @@ void setup()
 
     DateTime tic = centrage();
     //DateTime tic = RTC.now();
-    uint32_t t = tic.unixtime();
-    t = t + uint32_t(1.5*sampling_rate); // skip first value
-    for(uint8_t i=0;i<2;i++){
-        record[i]=(uint8_t) 0x00;
-    }
-    record[2]=(uint8_t) (t >> 24) & 0xFF;
-    record[3]=(uint8_t) (t >> 16) & 0xFF;
-    record[4]=(uint8_t) (t >> 8) & 0xFF;
-    record[5]=(uint8_t) t & 0xFF;
-    for(int i=6;i<30;i++){
-        record[i]=(uint8_t) 0x00;
-    }
     attachInterrupt(0, rtc_interrupt, RISING);
     digitalWrite(PEER_DOWNLOAD_MODE,LOW);
     delay(1000); // TODO : remove this
@@ -780,7 +766,7 @@ void loop(){
                           SerialPrintf("%06lu.%04d",dc[i],fc[i]);
                           Serial.print(F(" "));
                         }
-                        Serial.print(F("\n\r"));
+                        Serial.print(F("\r"));
                         digitalWrite(QUIET_MODE, quiet);
                       }
                     }
