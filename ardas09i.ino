@@ -25,7 +25,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ArDAS 0.9j [UMONS-GFA - 2016]"
+#define VERSION "Version ArDAS 0.9i [UMONS-GFA - 2016]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -35,8 +35,6 @@
 #define ADDR_I2 9
 #define ADDR_I3 11
 #define ADDR_I4 13
-#define ADDR_RASPARDAS_MODE 15
-
 #define PEER_DOWNLOAD_MODE 16
 #define QUIET_MODE 17
 
@@ -82,7 +80,7 @@ uint8_t cn = 0;
 uint16_t n = 0;
 boolean start_flag = true;
 boolean peer_download = false;
-boolean raspardas_mode = false;
+boolean RaspArDAS_mode = false;
 uint8_t nfe = 0;
 uint16_t sampling_rate = 2; // integration time in seconds
 Ds1307SqwPinMode modes[] = {SquareWave1HZ, SquareWave4kHz, SquareWave8kHz, SquareWave32kHz};
@@ -160,13 +158,6 @@ void read_shift_regs()
     }
 }
 
-void digitalSerialWrite(uint8_t Val)
-{
-    digitalWrite(stcp_pin, LOW);
-    shiftOut(ds_pin, shcp_pin, MSBFIRST, Val);
-    digitalWrite(stcp_pin, HIGH);
-}
-
 void read_bytes(uint8_t byte_number) {
     uint8_t val;
 
@@ -188,6 +179,13 @@ void read_bytes(uint8_t byte_number) {
     delayMicroseconds(PULSE_WIDTH_USEC);
     read_shift_regs();
     delayMicroseconds(PULSE_WIDTH_USEC);
+}
+
+void digitalSerialWrite(uint8_t Val)
+{
+    digitalWrite(stcp_pin, LOW);
+    shiftOut(ds_pin, shcp_pin, MSBFIRST, Val);
+    digitalWrite(stcp_pin, HIGH);
 }
 
 // µDAS interface
@@ -318,10 +316,6 @@ void get_das_info() {
     Serial.print(F("\n\r"));
 }
 
-void get_raspardas_mode(){
-    raspardas_mode = EEPROM.read(ADDR_RASPARDAS_MODE);
-}
-
 void get_version() {
     Serial.print(F("!RV "));
     Serial.print(VERSION);
@@ -362,11 +356,6 @@ void set_sampling_rate(String s) {
     Serial.print(F("!SR "));
     SerialPrintf("%04d", sampling_rate);
     Serial.print(F("\n\r"));
-}
-
-void set_raspardas_mode(boolean val){
-    EEPROM.write(ADDR_RASPARDAS_MODE, val);
-    raspardas_mode = val;
 }
 
 void reconfig(String s){ // NOTE : hard coded for 4 instruments
@@ -469,7 +458,6 @@ void setup()
     Serial.begin(57600);
     Serial.flush();
     Wire.begin();
-
     switch(freq){
         case 1:
             RTC_freq = modes[0];
@@ -542,8 +530,10 @@ void setup()
 
     // µDAS interface
     read_config_or_set_default();
-    get_raspardas_mode();
     //connect_id = String("-") + String(netid);
+
+
+
 
     DateTime tic = centrage();
     //DateTime tic = RTC.now();
@@ -652,10 +642,10 @@ void loop(){
                     set_echo_data_and_time();
                 }
                 else if (command == "RD") {
-                    set_raspardas_mode(true);
+                    RaspArDAS_mode = true;
                 }
                 else if (command == "ND") {
-                    set_raspardas_mode(false);
+                    RaspArDAS_mode = false;
                 }
                 else if (command == "RI") {
                     get_das_info();
@@ -767,7 +757,7 @@ void loop(){
                         start_flag = false;
                     }
                     else {
-                      if (raspardas_mode) {
+                      if (RaspArDAS_mode) {
                         digitalWrite(QUIET_MODE,!quiet);
                         Serial.write(0x24);
                         SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
@@ -780,7 +770,7 @@ void loop(){
                           SerialPrintf("%06lu.%04d",dc[i],fc[i]);
                           Serial.print(F(" "));
                         }
-                        Serial.print(F("\n\r"));
+                        Serial.print(F("\n\r")); 
                         digitalWrite(QUIET_MODE, quiet);
                       }
                     }
