@@ -19,4 +19,4 @@ install:
     - platformio lib install 83
 
 script:
-    - platformio ci --board=uno --lib="."
+    - platformio ci --board=uno --lib="." release/ardas.ino
