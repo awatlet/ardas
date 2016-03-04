@@ -1,4 +1,6 @@
 # arDAS
+[![Build Status](https://travis-ci.org/UMONS-GFA/ardas.svg?branch=master)](https://travis-ci.org/UMONS-GFA/ardas)
+
 The arDAS project is an attempt to emulate a **nanoDAS** with an Arduino.
 
 Features :
