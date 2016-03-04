@@ -9,7 +9,7 @@ cache:
         - "~/.platformio"
 
 env:
-    - PLATFORMIO_CI_SRC=release/ardas
+    - PLATFORMIO_CI_SRC=release/ardas.ino
 
 install:
     - pip install -U platformio
