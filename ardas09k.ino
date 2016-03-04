@@ -25,7 +25,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ArDAS 0.9j [UMONS-GFA - 2016]"
+#define VERSION "Version ArDAS 0.9k [UMONS-GFA - 2016]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
