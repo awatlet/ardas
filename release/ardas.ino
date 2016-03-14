@@ -25,7 +25,7 @@
 #define PULSE_WIDTH_USEC 5
 #define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
 #define CLOCK_FREQ 4096
-#define VERSION "Version ArDAS 1.0 [UMONS-GFA - 2016]"
+#define VERSION "Version ArDAS 1.0.1 [UMONS-GFA - 2016]"
 #define EOL '\r'
 #define ADDR_STATION 0
 #define ADDR_NETID 2
@@ -753,6 +753,9 @@ void loop(){
                         start_flag = false;
                     }
                     else {
+                      if (echo != 0){
+                        Serial.print(F("\n\r"));
+                      }
                       if (raspardas_mode) {
                         digitalWrite(QUIET_MODE,!quiet);
                         Serial.write(0x24);
