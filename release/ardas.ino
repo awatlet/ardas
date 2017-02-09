@@ -21,9 +21,10 @@
 #include <RTClib.h>
 #include <EEPROM.h>
 #include <avr/wdt.h>
+#include <avr/pgmspace.h>
 
 #define PULSE_WIDTH_USEC 5
-#define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if freq is 1 Hz
+#define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if SQW freq is 1 Hz
 #define CLOCK_FREQ 4096
 #define VERSION "Version ArDAS 1.0.1 [UMONS-GFA - 2016]"
 #define EOL '\r'
@@ -39,6 +40,13 @@
 
 #define PEER_DOWNLOAD_MODE 16
 #define QUIET_MODE 17
+
+const uint32_t PROGMEM crc_table[16] = {
+    0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
+    0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
+    0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
+    0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
+};
 
 const uint16_t COUNTS_BETWEEN_READINGS = CLOCK_FREQ / READ_COUNTER_REGISTER_FREQ;
 const uint8_t NUMBER_OF_COUNTERS = 2; // 32 bits counters
@@ -94,9 +102,11 @@ uint16_t station;
 uint16_t inst[NUMBER_OF_CHANNELS];
 uint8_t echo = 0;
 boolean download_flag = false;
-uint8_t record[30];
+uint8_t record[33];
+uint8_t crc[4];
 uint32_t dc[NUMBER_OF_CHANNELS];
 uint32_t fc[NUMBER_OF_CHANNELS];
+
 
 String s;
 
@@ -125,6 +135,26 @@ void software_reset()
     while(1)
     {
     }
+}
+
+uint32_t crc_update(uint32_t crc, byte data)
+{
+    byte tbl_idx;
+    tbl_idx = crc ^ (data >> (0 * 4));
+    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
+    tbl_idx = crc ^ (data >> (1 * 4));
+    crc = pgm_read_dword_near(crc_table + (tbl_idx & 0x0f)) ^ (crc >> 4);
+    return crc;
+}
+
+uint32_t crc_string(char *msg, size_t arraySize)
+{
+  uint32_t crc = ~0L;
+  for (int i=0; i < arraySize; i++) {
+    crc = crc_update(crc, *msg++);
+  }
+  crc = ~crc;
+  return crc;
 }
 
 void SerialPrintf(char *format,...)
@@ -447,10 +477,7 @@ DateTime centrage(){
     }
 
     n=(sampling_rate*READ_COUNTER_REGISTER_FREQ-laps)-2;
-    //delay(1000*laps);
     start_flag = true;
-    //echo = 2; // TODO : remove this
-    //quiet = false; // TODO : remove this
     return (DateTime) tic;
     //*****************************
     // TODO set n depending on laps
@@ -736,8 +763,15 @@ void loop(){
             channel[cn] += c1;
             if (n % (READ_COUNTER_REGISTER_FREQ*sampling_rate) == 0) {
                 if (!start_flag){
-                    uint32_t x = channel[cn];
                     float xf = channel[cn]/(1.0*sampling_rate);
+                    byte * x = (byte *) &xf;
+                    if (raspardas_mode) {
+                        int u = 9+2*nb_inst+cn*4;
+                        record[u]=x[3];
+                        record[u+1]=x[2];
+                        record[u+2]=x[1];
+                        record[u+3]=x[0];
+                    }
                     dc[cn] = floor(xf);
                     fc[cn] = floor((xf-(float)dc[cn])*10000.0);
                     if (echo != 0){
@@ -758,23 +792,30 @@ void loop(){
                       }
                       if (raspardas_mode) {
                         digitalWrite(QUIET_MODE,!quiet);
-                        Serial.write(0x24);
-                        SerialPrintf("%4d %02d %02d %02d %02d %02d",tic.year(),tic.month(),tic.day(),tic.hour(),tic.minute(),tic.second());
-                        Serial.print(F(" "));
-                        SerialPrintf("%4d",sampling_rate);
-                        Serial.print(F(" "));
-                        for (i=0;i<NUMBER_OF_CHANNELS;i++) {
-                          SerialPrintf("%4d", inst[i]);
-                          Serial.print(F(" "));
-                          SerialPrintf("%06lu.%04d",dc[i],fc[i]);
-                          Serial.print(F(" "));
+                        uint32_t t = tic. unixtime();
+                        record[0]=(uint8_t) 0x24;
+                        record[1]=(uint8_t) (station >> 8) & 0xFF;
+                        record[2]=(uint8_t) station & 0xFF;
+                        record[3]=(uint8_t) (sampling_rate >> 8) & 0xFF;
+                        record[4]=(uint8_t) sampling_rate & 0xFF;
+                        record[5]=(uint8_t) (t >> 24) & 0xFF;
+                        record[6]=(uint8_t) (t >> 16) & 0xFF;
+                        record[7]=(uint8_t) (t >> 8) & 0xFF;
+                        record[8]=(uint8_t) t & 0xFF;
+                        for (int j=0;j<nb_inst;j++){
+                            record[9+2*j]=(uint8_t) (inst[j] >> 8) & 0xFF;
+                            record[9+2*j+1]=(uint8_t) inst[j] & 0xFF;
                         }
-                        Serial.print(F("\r"));
+                        Serial.write(record, sizeof(record));
+                        uint32_t checksum = crc_string((char *) record, 33); // TODO: try using union...
+                        //SerialPrintf("%08d", checksum);
+                        crc[0]=(uint8_t) (checksum >> 24) & 0xFF;
+                        crc[1]=(uint8_t) (checksum >> 16) & 0xFF;
+                        crc[2]=(uint8_t) (checksum >> 8) & 0xFF;
+                        crc[3]=(uint8_t) checksum & 0xFF;
+                        Serial.write(crc, sizeof(crc));
                         digitalWrite(QUIET_MODE, quiet);
                       }
-                    }
-                    if (echo != 0){
-                        Serial.print(F("\n\r"));
                     }
                 }
                 n=0;
