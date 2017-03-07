@@ -9,7 +9,7 @@ cache:
         - "~/.platformio"
 
 env:
-    - PLATFORMIO_CI_SRC=release/ardas.ino
+    - PLATFORMIO_CI_SRC=arduino_sketch/ardas.ino
 
 install:
     - pip install -U platformio
@@ -19,4 +19,4 @@ install:
     - platformio lib install 83
 
 script:
-    - platformio ci --board=uno --lib="." release/ardas.ino
+    - platformio ci --board=uno --lib="." arduino_sketch/ardas.ino
