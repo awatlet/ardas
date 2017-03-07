@@ -36,7 +36,7 @@ if not path.isdir('raw'):
     mkdir('raw')
 file_name = 'raw/raw'
 data_file = path.join(base_path, file_name + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
-log_file = path.join(base_path, 'logs/RaspArDAS.log')
+log_file = path.join(base_path, 'logs/ardas.log')
 chunk_size = 4096
 if debug:
     logging_level = logging.DEBUG
@@ -56,7 +56,7 @@ master_queue = queue.Queue()  # what comes from Master (e.g. cron task running c
 data_queue = queue.Queue()  # what should be written on disk
 raw_data = False  # uses calibration
 influxdb_logging = True
-peer_download = False  # TODO: find a way to set peer_download to True if another RaspArDAS is downloading at startup
+peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
 downloading = False
 stop = False
 
@@ -365,7 +365,7 @@ def save_file():
 
 if __name__ == '__main__':
     logging.info('*** SESSION STARTING ***\n')
-    logging.info('RaspArDAS version ' + str(version) + '.')
+    logging.info('ardas version ' + str(version) + '.')
     if len(sys.argv) > 1:
         i = 1
         if len(sys.argv) % 2 == 1:
@@ -411,7 +411,7 @@ if __name__ == '__main__':
             master_socket.listen(1)
             logging.debug('Binding done!')
     except IOError as e:
-        logging.error('*** Cannot open server socket!' + str(e))  # TODO : What to do if RaspArDAS cannot connect to server
+        logging.error('*** Cannot open server socket!' + str(e))  # TODO : What to do if ardas cannot connect to server
         status &= False
     try:
         sd_file_io = gzip.open(data_file, 'ab+')
@@ -458,7 +458,7 @@ if __name__ == '__main__':
         try:
             # listen for a short time (e.g. 1 second) to check if another slave is talking to the master
             # TODO : Should the master broadcast a message every second when it is listening to a download from
-            # a RaspArDAS to inhibit all others?
+            # a ardas to inhibit all others?
             # master_queue.put(b'#E0\r')
             disk_writer = Thread(target=write_disk)
             disk_writer.setDaemon(True)
@@ -503,10 +503,10 @@ if __name__ == '__main__':
                 pass
             else:
                 sd_file_io.close()
-            logging.info('Exiting RaspArDAS')
+            logging.info('Exiting ardas')
             logging.info('*** SESSION ENDING ***\n\n')
     else:
-        logging.info('Exiting RaspArDAS')
+        logging.info('Exiting ardas')
         try:
             slave.close()
         except:
