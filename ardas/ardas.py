@@ -10,7 +10,7 @@ import queue
 import gzip
 import socket
 from influxdb import InfluxDBClient
-from settings import host, port, user, password, dbname
+from ardas.settings import host, port, user, password, dbname
 
 from struct import unpack_from
 from threading import Thread, Lock
@@ -30,13 +30,15 @@ calibration = []
 calibration_file = ''
 status = True
 base_path = path.dirname(__file__)
-if not path.isdir('logs'):
-    mkdir('logs')
-if not path.isdir('raw'):
-    mkdir('raw')
-file_name = 'raw/raw'
-data_file = path.join(base_path, file_name + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
-log_file = path.join(base_path, 'logs/ardas.log')
+log_path = path.join(base_path, 'logs')
+raw_path = path.join(base_path, 'raw')
+if not path.isdir(log_path):
+    mkdir(log_path)
+if not path.isdir(raw_path):
+    mkdir(raw_path)
+file_name = 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz'
+data_file = path.join(raw_path, file_name)
+log_file = path.join(log_path, 'ardas.log')
 chunk_size = 4096
 if debug:
     logging_level = logging.DEBUG
