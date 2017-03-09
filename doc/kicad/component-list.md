@@ -17,6 +17,7 @@ Quartz ABRACON CRYSTAL, 32.768KHZ, 12.5PF  ref: 2467865  X1 http://www.farnell.c
 Battery holder ref: 2064720  
 or
 Battery retainer ref: 1650692  
+Arduino Shield stack header  X1 https://shop.mchobby.be/arduino/249-3-x-16-pin-header-extra-long-3232100002494.html?search_query=arduino+header&results=418
 
 #### SD shield
 HEF4050BT  ref: 1085285   x1   http://www.farnell.com/datasheets/1758120.pdf  
