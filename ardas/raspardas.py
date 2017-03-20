@@ -10,7 +10,7 @@ import queue
 import gzip
 import socket
 from influxdb import InfluxDBClient
-from ardas.settings import host, port, user, password, dbname
+from ardas.settings import DATABASE # host, port, user, password, dbname
 
 from struct import unpack_from
 from threading import Thread, Lock
@@ -534,10 +534,11 @@ if __name__ == '__main__':
                             calibration[i]['unit'], str(calibration[i]['coefs'])))
     if influxdb_logging:
         try:
-            logging.info('Logging to database: %s' % dbname)
-            client = InfluxDBClient(host, port, user, password, dbname)
+            logging.info('Logging to database: %s' % DATABASE['dbname'])
+            client = InfluxDBClient(DATABASE['host'], DATABASE['port'], DATABASE['user'], DATABASE['password'],
+                                    DATABASE['dbname'])
         except:
-            logging.error('*** Unable to log to database %s' % dbname)
+            logging.error('*** Unable to log to database %s' % DATABASE['dbname'])
 
     if status:# sd_file_lock = Lock()
         try:
