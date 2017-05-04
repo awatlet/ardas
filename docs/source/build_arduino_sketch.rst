@@ -33,6 +33,12 @@ Create a CMakeLists.txt and modify it to your needs ::
 Build and upload to arduino board
 ---------------------------------
 
+Prepare the build ::
+
+    mkdir build
+    cd build
+    cmake ..
+
 Compile ::
 
     make
