@@ -11,7 +11,7 @@ Welcome to ardas's documentation!
    :caption: Contents:
 
    parse_and_push_to_db
-
+   build_arduino_sketch
 
 
 Indices and tables
