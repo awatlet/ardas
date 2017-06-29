@@ -9,3 +9,6 @@ Features :
 * 4 channels
 * compatible with DAS network
 * CRC control (raspardas_mode)
+
+
+**Note: Don't forget to set baudrate to 57600**
