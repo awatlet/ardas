@@ -10,11 +10,11 @@ import queue
 import gzip
 import socket
 from influxdb import InfluxDBClient
-from ardas.settings import DATABASE # host, port, user, password, dbname
+from ardas.settings import DATABASE, ARDAS_CONFIG # host, port, user, password, dbname
 
 from struct import unpack_from
 from threading import Thread, Lock
-version = 0.31
+version = 'v1.1.2.32'
 debug = True
 
 local_host = '0.0.0.0'
@@ -435,7 +435,7 @@ if __name__ == '__main__':
     logging.info('****************************')
     logging.info('*** NEW SESSION STARTING ***')
     logging.info('****************************')
-    logging.info('Raspardas version ' + str(version) + '.')
+    logging.info('Raspardas version ' + version + '.')
     logging.info('')
     if len(sys.argv) > 1:
         i = 1
@@ -546,9 +546,9 @@ if __name__ == '__main__':
             # TODO : Should the master broadcast a message every second when it is listening to a download from
             # a raspardas to inhibit all others?
             # master_queue.put(b'#E0\r')
-            station = '0002'
-            net_id = '002'  # TODO : FIX this by getting net_id from config!
-            integration_period = '0001'  # TODO : FIX this by getting integration period from config!
+            station = ARDAS_CONFIG['station']
+            net_id = ARDAS_CONFIG['net_id']
+            integration_period = ARDAS_CONFIG['integration_period']
 
             # master_queue.put(cmd)
             sd_file_lock = Lock()
