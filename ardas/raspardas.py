@@ -14,7 +14,7 @@ from ardas.settings import DATABASE, ARDAS_CONFIG # host, port, user, password, 
 
 from struct import unpack_from
 from threading import Thread, Lock
-version = 'v1.1.2.32'
+version = 'v1.1.2.33'
 debug = True
 
 local_host = '0.0.0.0'
@@ -29,6 +29,7 @@ n_channels = 4
 calibration = []
 calibration_file = ''
 status = True
+pause = False
 base_path = path.dirname(__file__)
 log_path = path.join(base_path, 'logs')
 raw_path = path.join(base_path, 'raw')
@@ -71,7 +72,7 @@ def listen_slave():
     the main thread ends.
     """
     global stop, downloading, slave_io, data_queue, n_channels, debug, slave_queue, master_queue, raw_data, \
-        influxdb_logging, master_online
+        influxdb_logging, master_online, pause
 
     while not stop:
         # Read incoming data from slave (ArDAS)
@@ -131,7 +132,7 @@ def listen_slave():
                             cal_record += s % (instr[i], val[i], calibration[i]['unit'])
                         cal_record += '|\n'
                         slave_queue.put(cal_record.encode('utf-8'))
-                    if influxdb_logging and not raw_data:
+                    if influxdb_logging and not raw_data and not pause:
                         data = []
                         for i in range(n_channels):
                             data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' %instr[i]},
@@ -220,7 +221,7 @@ def listen_master():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, master_connection, master_queue, master_online, raw_data
+    global stop, master_connection, master_queue, master_online, raw_data, pause
 
     while not stop:
         if master_online:
@@ -249,6 +250,12 @@ def listen_master():
                     elif msg[:-1] == b'#CF':
                         logging.info('Change file request')
                         save_file()
+                    elif msg[:-1] == b'#PA':
+                        if pause:
+                            logging.info('Resume data logging')
+                        else:
+                            logging.info('Pause data logging')
+                        pause = not pause
                     elif msg[:-1] == b'#RC':
                         raw_data = not raw_data
                         if raw_data:
@@ -304,7 +311,7 @@ def write_disk():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, sd_file_io, data_queue, sd_file_lock
+    global stop, sd_file_io, data_queue, sd_file_lock, pause
 
     offset = sd_file_io.tell()
     while not stop:
@@ -312,13 +319,14 @@ def write_disk():
             msg = data_queue.get(timeout=0.1)
             logging.debug('Data queue length : %d' % data_queue.qsize())
             if len(msg) > 0:
-                logging.debug('Writing to disk :' + msg.decode('ascii'))
-                sd_file_lock.acquire()
-                sd_file_io.seek(offset)
-                sd_file_io.write(msg)
-                sd_file_io.flush()
-                offset = sd_file_io.tell()
-                sd_file_lock.release()
+                if not pause:
+                    logging.debug('Writing to disk :' + msg.decode('ascii'))
+                    sd_file_lock.acquire()
+                    sd_file_io.seek(offset)
+                    sd_file_io.write(msg)
+                    sd_file_io.flush()
+                    offset = sd_file_io.tell()
+                    sd_file_lock.release()
         except queue.Empty:
             pass
     sd_file_io.flush()

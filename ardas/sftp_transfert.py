@@ -9,8 +9,8 @@ def download_from_remote():
         remote_path = sys.argv[1]
         local_path = sys.argv[2]
     else:
-        logging.error('*** Arguments should be REMOTEPATH LOCALPATH')
-        sys.exit(1)
+        local_path = SFTP['local_path']
+        remote_path = SFTP['remote_path']
     try:
         s = sftp.Connection(host=SFTP['host'], username=SFTP['username'], password=SFTP['password'])
         s.get(remote_path, local_path)
@@ -24,8 +24,8 @@ def upload_to_remote():
         local_path = sys.argv[1]
         remote_path = sys.argv[2]
     else:
-        logging.error('*** Arguments should be LOCALPATH REMOTEPATH')
-        sys.exit(1)
+        local_path = SFTP['local_path']
+        remote_path = SFTP['remote_path']
     try:
         s = sftp.Connection(host=SFTP['host'], username=SFTP['username'], password=SFTP['password'])
         s.put(local_path, remote_path)

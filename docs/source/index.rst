@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to ardas's documentation!
+Welcome to ardas documentation!
 =================================
 
 .. toctree::
@@ -12,6 +12,7 @@ Welcome to ardas's documentation!
 
    parse_and_push_to_db
    build_arduino_sketch
+   commands
    settings
 
 Indices and tables
