@@ -12,7 +12,7 @@ Welcome to ardas's documentation!
 
    parse_and_push_to_db
    build_arduino_sketch
-
+   settings
 
 Indices and tables
 ==================
