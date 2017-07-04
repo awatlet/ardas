@@ -9,6 +9,8 @@ import binascii
 import queue
 import gzip
 import socket
+import ntplib
+
 from influxdb import InfluxDBClient
 from ardas.settings import DATABASE, ARDAS_CONFIG # host, port, user, password, dbname
 
@@ -375,10 +377,12 @@ def save_file():
 
 
 def start_sequence(station, net_id, integration_period, sensors):
-    global master_queue, slave_queue
+    global master_queue, slave_queue, pause
 
-    logging.debug('start sequence...')
+    logging.debug('Initiating start sequence...')
+    logging.debug('____________________________')
 
+    pause = True
     while not slave_queue.empty():
         time.sleep(0.001)
     logging.debug('Wake up slave...')
@@ -388,7 +392,8 @@ def start_sequence(station, net_id, integration_period, sensors):
         master_queue.put(msg)
         logging.debug('Sending wake-up command')
         try:
-            msg = slave_queue.get(timeout=0.25)
+            msg = slave_queue.get(timeout=0.5)
+            logging.debug('Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
         except:
             pass
         if msg[0:4] == b'!HI ':
@@ -414,7 +419,7 @@ def start_sequence(station, net_id, integration_period, sensors):
         master_queue.put(msg)
         logging.debug('Sending reconfig command')
         try:
-            msg = slave_queue.get(timeout=0.25)
+            msg = slave_queue.get(timeout=0.5)
         except:
             pass
         if msg[0:4] == b'!ZR ':
@@ -428,7 +433,7 @@ def start_sequence(station, net_id, integration_period, sensors):
         master_queue.put(msg)
         logging.debug('Sending no echo command')
         try:
-            msg = slave_queue.get(timeout=0.25)
+            msg = slave_queue.get(timeout=0.5)
         except:
             pass
         if msg[0:4] == b'!E0 ':
@@ -436,7 +441,31 @@ def start_sequence(station, net_id, integration_period, sensors):
             reply = True
         else:
             logging.debug('No proper reply received yet...')
-
+    logging.debug('Resetting clock...')
+    c = ntplib.NTPClient()
+    reply = False
+    while not reply:
+        try:
+            logging.debug('Getting time from NTP...')
+            now = datetime.datetime.utcfromtimestamp(c.request('europe.pool.ntp.org').tx_time)
+            msg = '#SD %04d %02d %02d %02d %02d %02d\r' % (now.year, now.month, now.day, now.hour, now.minute, now.second)
+            master_queue.put(bytes(msg.encode('ascii')))
+            logging.info('Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
+                         (now.year, now.month, now.day, now.hour, now.minute, now.second))
+            try:
+                msg = slave_queue.get(timeout=0.5)
+            except:
+                pass
+            if msg[0:4] == b'!SD ':
+                logging.debug('Reply received!')
+                reply = True
+            else:
+                logging.debug('No proper reply received yet...')
+        except:
+            print('Unable to get date and time from to NTP !')
+    logging.debug('Start sequence finished...')
+    logging.debug('__________________________')
+    pause = False
 
 if __name__ == '__main__':
     logging.info('')
@@ -548,12 +577,8 @@ if __name__ == '__main__':
         except:
             logging.error('*** Unable to log to database %s' % DATABASE['dbname'])
 
-    if status:# sd_file_lock = Lock()
+    if status:
         try:
-            # listen for a short time (e.g. 1 second) to check if another slave is talking to the master
-            # TODO : Should the master broadcast a message every second when it is listening to a download from
-            # a raspardas to inhibit all others?
-            # master_queue.put(b'#E0\r')
             station = ARDAS_CONFIG['station']
             net_id = ARDAS_CONFIG['net_id']
             integration_period = ARDAS_CONFIG['integration_period']
@@ -594,8 +619,6 @@ if __name__ == '__main__':
             master_connector.join()
             slave_talker.join()
             disk_writer.join()
-
-
 
         finally:
             logging.info('Exiting - Closing file and communication ports...')
