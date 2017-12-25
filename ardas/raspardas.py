@@ -16,7 +16,7 @@ from ardas.settings import DATABASE, ARDAS_CONFIG # host, port, user, password, 
 
 from struct import unpack_from
 from threading import Thread, Lock
-version = 'v1.1.2.33'
+version = 'v1.1.2.35'
 debug = True
 
 local_host = '0.0.0.0'
@@ -59,8 +59,8 @@ else:
 slave_queue = queue.Queue()  # what comes from ArDAS
 master_queue = queue.Queue()  # what comes from Master (e.g. cron task running client2.py)
 data_queue = queue.Queue()  # what should be written on disk
-raw_data = False  # uses calibration
-influxdb_logging = True
+raw_data = True  # default: no calibration
+influxdb_logging = False  # no logging to influx by default
 peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
 downloading = False
 stop = False
@@ -392,7 +392,7 @@ def start_sequence(station, net_id, integration_period, sensors):
         master_queue.put(msg)
         logging.debug('Sending wake-up command')
         try:
-            msg = slave_queue.get(timeout=0.5)
+            msg = slave_queue.get(timeout=1)
             logging.debug('Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
         except:
             pass
@@ -419,7 +419,7 @@ def start_sequence(station, net_id, integration_period, sensors):
         master_queue.put(msg)
         logging.debug('Sending reconfig command')
         try:
-            msg = slave_queue.get(timeout=0.5)
+            msg = slave_queue.get(timeout=1)
         except:
             pass
         if msg[0:4] == b'!ZR ':
@@ -433,7 +433,7 @@ def start_sequence(station, net_id, integration_period, sensors):
         master_queue.put(msg)
         logging.debug('Sending no echo command')
         try:
-            msg = slave_queue.get(timeout=0.5)
+            msg = slave_queue.get(timeout=1)
         except:
             pass
         if msg[0:4] == b'!E0 ':
@@ -453,7 +453,7 @@ def start_sequence(station, net_id, integration_period, sensors):
             logging.info('Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
                          (now.year, now.month, now.day, now.hour, now.minute, now.second))
             try:
-                msg = slave_queue.get(timeout=0.5)
+                msg = slave_queue.get(timeout=1)
             except:
                 pass
             if msg[0:4] == b'!SD ':
@@ -490,6 +490,7 @@ if __name__ == '__main__':
                     logging.info('   Slave device : ' + str(slave_device))
                 elif sys.argv[i] == 'calibration':
                     calibration_file = str(sys.argv[i+1])
+                    raw_data = False
                 else:
                     logging.info('   Unknown argument : ' + str(sys.argv[i]))
                 i += 2
@@ -518,9 +519,9 @@ if __name__ == '__main__':
     logging.info('Saving log to ' + log_file)
 
     try:
-        slave = serial.Serial(slave_device, baudrate=57600, timeout=0.1)
-        slave.flush()
-        slave_io = io.BufferedRWPair(slave, slave, buffer_size=128)  # FIX : BufferedRWPair does not attempt to synchronize accesses to its underlying raw streams. You should not pass it the same object as reader and writer; use BufferedRandom instead.
+        slave_io = serial.Serial(slave_device, baudrate=57600, timeout=0.1)
+        slave_io.flush()
+        #slave_io = io.BufferedRandom(slave, buffer_size=128)  # FIX : BufferedRWPair does not attempt to synchronize accesses to its underlying raw streams. You should not pass it the same object as reader and writer; use BufferedRandom instead.
         logging.info('Saving data to ' + data_file)
     except IOError as e:
         logging.error('*** Cannot open serial connexion with slave! : ' + str(e))
@@ -558,8 +559,10 @@ if __name__ == '__main__':
                     logging.info('  Sensor: %s     variable: %s     unit: %s        coefs: %s'
                                  % (calibration[i]['sensor'], calibration[i]['variable'],
                                     calibration[i]['unit'], str(calibration[i]['coefs'])))
+            raw_data = False
         except IOError as e:
             logging.error('*** Cannot read calibration file ! : ' + str(e))
+            raw_data = True
             status &= False
     else:
         logging.warning('Default calibration : ')
@@ -569,6 +572,8 @@ if __name__ == '__main__':
             logging.info('  Sensor: %s     variable: %s     unit: %s        coefs: %s'
                          % (calibration[i]['sensor'], calibration[i]['variable'],
                             calibration[i]['unit'], str(calibration[i]['coefs'])))
+            raw_data = True
+
     if influxdb_logging:
         try:
             logging.info('Logging to database: %s' % DATABASE['dbname'])
