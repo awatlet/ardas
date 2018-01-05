@@ -1,69 +1,100 @@
-from os import path, mkdir, statvfs
-import io
-import sys
-import serial
-import time
-import datetime
-import logging
 import binascii
-import queue
+import datetime
 import gzip
+import logging
+import queue
 import socket
-import ntplib
-
-from influxdb import InfluxDBClient
-from ardas.settings import DATABASE, ARDAS_CONFIG # host, port, user, password, dbname
-
+import time
+from os import path, mkdir, statvfs
 from struct import unpack_from
 from threading import Thread, Lock
-version = 'v1.1.2.35'
-debug = True
 
-local_host = '0.0.0.0'
-local_port = 10001
-master_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-master_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-master_connection = None
-master_online = False
-slave_device = '/dev/ttyACM0'
-slave = None
-n_channels = 4
-calibration = []
-calibration_file = ''
-status = True
-pause = False
-base_path = path.dirname(__file__)
-log_path = path.join(base_path, 'logs')
-raw_path = path.join(base_path, 'raw')
-if not path.isdir(log_path):
-    mkdir(log_path)
-if not path.isdir(raw_path):
-    mkdir(raw_path)
-file_name = 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz'
-data_file = path.join(raw_path, file_name)
-log_file = path.join(log_path, 'raspardas.log')
-chunk_size = 4096
+import ntplib
+import serial
+from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS_CALIBRATION, MASTER_CONFIG, LOGGING_CONFIG
+from influxdb import InfluxDBClient
+
+version = 'v1.1.2.36'
+# Debug and logging
+debug = LOGGING_CONFIG['debug_mode']
 if debug:
     logging_level = logging.DEBUG
 else:
     logging_level = logging.INFO
-logging.Formatter.converter = time.gmtime
-log_format = '%(asctime)-15s | %(process)d | %(levelname)s: %(message)s'
-logging_to_console = False
-if logging_to_console:
-    logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
-                        handlers=[logging.FileHandler(log_file), logging.StreamHandler()])
-else:
-    logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
-                        handlers=[logging.FileHandler(log_file)])
+logging_to_console = LOGGING_CONFIG['logging_to_console']
+influxdb_logging = LOGGING_CONFIG['influxdb_logging']
+
+# Connection to master
+local_host = MASTER_CONFIG['local_host']
+local_port = MASTER_CONFIG['local_port']
+master_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+master_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+master_connection = None
+master_online = False
+
+# Connection and communication with slave
+slave_io = None
+n_channels = len(SENSORS_CALIBRATION)
+chunk_size = 4096
+raw_data = False  # calibration should be set in settings, use default calibration if data should be stored in Hertz
+# raw_data should only be true if reading calibration file fails.
+
+peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
+downloading = False
+pause = False
+stop = False
+
+
 slave_queue = queue.Queue()  # what comes from ArDAS
 master_queue = queue.Queue()  # what comes from Master (e.g. cron task running client2.py)
 data_queue = queue.Queue()  # what should be written on disk
-raw_data = True  # default: no calibration
-influxdb_logging = False  # no logging to influx by default
-peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
-downloading = False
-stop = False
+
+# Remaining initialization
+data_file = ''
+log_file = ''
+status = True
+
+
+def init_logging():
+    global data_file, log_file, logging_level, logging_to_console
+    """ This is the init sequence for the logging system """
+
+    # Set data and message logging paths
+    base_path = path.dirname(__file__)
+    log_path = path.join(base_path, 'logs')
+    raw_path = path.join(base_path, 'raw')
+    if not path.isdir(log_path):
+        mkdir(log_path)
+    if not path.isdir(raw_path):
+        mkdir(raw_path)
+    data_file = path.join(raw_path, 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
+    log_file = path.join(log_path, 'raspardas.log')
+
+    # Set message logging format and level
+    logging.Formatter.converter = time.gmtime
+    log_format = '%(asctime)-15s | %(process)d | %(levelname)s: %(message)s'
+    if logging_to_console:
+        logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
+                            handlers=[logging.FileHandler(log_file), logging.StreamHandler()])
+    else:
+        logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
+                            handlers=[logging.FileHandler(log_file)])
+    logging.info('')
+    logging.info('****************************')
+    logging.info('*** NEW SESSION STARTING ***')
+    logging.info('****************************')
+    logging.info('Raspardas version ' + version + '.')
+    logging.info('')
+    if debug:
+        logging.warning('Debug mode: ON')
+    logging.info('Logging level: %s' % logging_level)
+    try:
+        st = statvfs('.')
+        available_space = st.f_bavail * st.f_frsize / 1024 / 1024
+        logging.info('Remaining disk space : %.1f MB' % available_space)
+    except:
+        pass
+    logging.info('Saving log to ' + log_file)
 
 
 def listen_slave():
@@ -76,6 +107,7 @@ def listen_slave():
     global stop, downloading, slave_io, data_queue, n_channels, debug, slave_queue, master_queue, raw_data, \
         influxdb_logging, master_online, pause
 
+    calibration = SENSORS_CALIBRATION
     while not stop:
         # Read incoming data from slave (ArDAS)
         try:
@@ -120,9 +152,7 @@ def listen_slave():
                         if raw_data:
                             decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
                         else:
-                            val[i] = calibration[i]['coefs'][0] + calibration[i]['coefs'][1]*freq[i] \
-                                   + calibration[i]['coefs'][2]*freq[i]**2 + calibration[i]['coefs'][3]*freq[i]**3 \
-                                   + calibration[i]['coefs'][4]*freq[i]**4
+                            val[i] = calibration[i][1]['method'](freq[i], calibration[i][1]['parameters'])
                             decoded_record += ' %04d %11.4f' % (instr[i], val[i])
 
                     decoded_record += '\n'
@@ -130,14 +160,14 @@ def listen_slave():
                     if master_online and not raw_data:
                         cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
                         for i in range(n_channels):
-                            s = '| %04d: %' + calibration[i]['format'] + ' %s '
-                            cal_record += s % (instr[i], val[i], calibration[i]['unit'])
+                            s = '| %04d: %' + calibration[i][1]['format'] + ' %s '
+                            cal_record += s % (instr[i], val[i], calibration[i][1]['unit'])
                         cal_record += '|\n'
                         slave_queue.put(cal_record.encode('utf-8'))
                     if influxdb_logging and not raw_data and not pause:
                         data = []
                         for i in range(n_channels):
-                            data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' %instr[i]},
+                            data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' % instr[i]},
                                         'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                          'fields': {'value': val[i]}})
                         logging.debug('Writing to InfluxDB : %s' % str(data))
@@ -181,7 +211,9 @@ def talk_slave():
             except:
                 logging.warning('*** talk_slave thread - Unable to decode master message...')
             slave_io.write(msg)
-            slave_io.flush()
+            logging.debug('In waiting: ' + str(slave_io.in_waiting))
+            logging.debug('Out waiting: ' + str(slave_io.out_waiting))
+            slave_io.flush()  # NOTE: this line was commented as a test
         except queue.Empty:
             pass
         except serial.SerialTimeoutException:
@@ -364,175 +396,148 @@ def full_download():
 def save_file():
     """This is a save_file function.
     """
-    global base_path, data_file, sd_file_io, sd_file_lock, master_connection
+    global data_file, sd_file_io, sd_file_lock, master_connection
 
     sd_file_lock.acquire()
     sd_file_io.close()
     logging.info('File ' + data_file + ' saved.')
 
-    data_file = path.join(base_path, file_name + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
+    base_path = path.dirname(__file__)
+    data_file = path.join(base_path, 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
     sd_file_io = gzip.open(data_file, "ab+")
     sd_file_lock.release()
     logging.info('New file ' + data_file + ' created.')
 
 
-def start_sequence(station, net_id, integration_period, sensors):
-    global master_queue, slave_queue, pause
+def start_sequence():
+    global master_queue, slave_queue, n_channels, pause
 
     logging.debug('Initiating start sequence...')
     logging.debug('____________________________')
 
     pause = True
     while not slave_queue.empty():
-        time.sleep(0.001)
-    logging.debug('Wake up slave...')
+        time.sleep(0.01)
+    logging.debug('start_sequence : Wake up slave...')
     reply = False
     while not reply:
-        msg = b'-' + bytes(net_id.encode('ascii')) + b'\r'
+        msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r'
         master_queue.put(msg)
-        logging.debug('Sending wake-up command')
+        logging.debug('start_sequence : Sending wake-up command')
+        msg = b''
         try:
-            msg = slave_queue.get(timeout=1)
-            logging.debug('Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
-        except:
-            pass
-        if msg[0:4] == b'!HI ':
-            logging.debug('Reply received!')
-            reply = True
-        else:
-            logging.debug('No proper reply received yet...')
+            msg = slave_queue.get(timeout=0.1)
+        except queue.Empty:
+            logging.debug('start_sequence : Timed out...')
+        if msg != b'':
+            try:
+                logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
+            except UnicodeDecodeError as e:
+                logging.debug('start_sequence : slave_queue exception...' + str(e))
+            if len(msg) > 3 and msg[0:4] == b'!HI ':
+                logging.debug('start_sequence : Reply received!')
+                reply = True
+            else:
+                logging.debug('start_sequence : No proper reply received yet...')
+
     reply = False
     while not reply:
         msg = b'#ZR '
-        msg += bytes(station.encode('ascii'))
+        msg += bytes(ARDAS_CONFIG['station'].encode('ascii'))
         msg += b' '
-        msg += bytes(net_id.encode('ascii'))
+        msg += bytes(ARDAS_CONFIG['net_id'].encode('ascii'))
         msg += b' '
-        msg += bytes(integration_period.encode('ascii'))
+        msg += bytes(ARDAS_CONFIG['integration_period'].encode('ascii'))
         msg += b' '
         msg += bytes(str(n_channels).encode('ascii'))
         msg += b' '
-        for i in calibration:
-            msg += bytes(i['sensor'].encode('ascii'))
+        for i in SENSORS_CALIBRATION:
+            msg += bytes(i[0].encode('ascii'))
             msg += b' '
         msg += b'31\r'
         master_queue.put(msg)
-        logging.debug('Sending reconfig command')
+        logging.debug('start_sequence : Sending reconfig command')
         try:
-            msg = slave_queue.get(timeout=1)
+            msg = slave_queue.get(timeout=0.5)
         except:
             pass
         if msg[0:4] == b'!ZR ':
-            logging.debug('Reply received!')
+            logging.debug('start_sequence : Reply received!')
             reply = True
         else:
-            logging.debug('No proper reply received yet...')
+            logging.debug('start_sequence : No proper reply received yet...')
     reply = False
     while not reply:
         msg = b'#E0\r'
         master_queue.put(msg)
-        logging.debug('Sending no echo command')
+        logging.debug('start_sequence : Sending no echo command')
         try:
-            msg = slave_queue.get(timeout=1)
+            msg = slave_queue.get(timeout=0.5)
         except:
             pass
         if msg[0:4] == b'!E0 ':
-            logging.debug('Reply received!')
+            logging.debug('start_sequence : Reply received!')
             reply = True
         else:
-            logging.debug('No proper reply received yet...')
-    logging.debug('Resetting clock...')
+            logging.debug('start_sequence : No proper reply received yet...')
+    logging.debug('start_sequence : Resetting clock...')
     c = ntplib.NTPClient()
     reply = False
     while not reply:
         try:
-            logging.debug('Getting time from NTP...')
+            logging.debug('start_sequence : Getting time from NTP...')
             now = datetime.datetime.utcfromtimestamp(c.request('europe.pool.ntp.org').tx_time)
             msg = '#SD %04d %02d %02d %02d %02d %02d\r' % (now.year, now.month, now.day, now.hour, now.minute, now.second)
             master_queue.put(bytes(msg.encode('ascii')))
-            logging.info('Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
+            logging.info('start_sequence : Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
                          (now.year, now.month, now.day, now.hour, now.minute, now.second))
             try:
-                msg = slave_queue.get(timeout=1)
+                msg = slave_queue.get(timeout=0.5)
             except:
                 pass
             if msg[0:4] == b'!SD ':
-                logging.debug('Reply received!')
+                logging.debug('start_sequence : Reply received!')
                 reply = True
             else:
-                logging.debug('No proper reply received yet...')
+                logging.debug('start_sequence : No proper reply received yet...')
         except:
-            print('Unable to get date and time from to NTP !')
+            logging.debug('start_sequence : Unable to get date and time from to NTP !')
     logging.debug('Start sequence finished...')
     logging.debug('__________________________')
     pause = False
 
 if __name__ == '__main__':
+    init_logging()
+
+    logging.info('ArDAS settings:')
+    logging.info('\tstation: %s' % ARDAS_CONFIG['station'])
+    logging.info('\tnet ID: %s' % ARDAS_CONFIG['net_id'])
+    logging.info('\tintegration period: %s' % ARDAS_CONFIG['integration_period'])
     logging.info('')
-    logging.info('****************************')
-    logging.info('*** NEW SESSION STARTING ***')
-    logging.info('****************************')
-    logging.info('Raspardas version ' + version + '.')
-    logging.info('')
-    if len(sys.argv) > 1:
-        i = 1
-        if len(sys.argv) % 2 == 1:
-            while i < len(sys.argv)-1:
-                if sys.argv[i] == 'debug':
-                    if str(sys.argv[i+1]) == 'on':
-                        debug = True
-                        logging.info('   Debug mode ON')
-                    else:
-                        debug = False
-                        logging.info('   Debug mode OFF')
-                elif sys.argv[i] == 'slave':
-                    slave_device = int(sys.argv[i+1])
-                    logging.info('   Slave device : ' + str(slave_device))
-                elif sys.argv[i] == 'calibration':
-                    calibration_file = str(sys.argv[i+1])
-                    raw_data = False
-                else:
-                    logging.info('   Unknown argument : ' + str(sys.argv[i]))
-                i += 2
-        else:
-            logging.info('Parsing failed : arguments should be given by pairs [key value], ignoring arguments...')
-    else:
-        logging.info('No argument found... Using defaults.')
-
-    logging.info('Logging level: %s' % logging_level)
-    try:
-        if debug:
-            logging_level = logging.DEBUG
-        else:
-            logging_level = logging.INFO
-        logging.getLogger().setLevel(logging_level)
-
-    except:
-        logging.error('*** Unable to set logging level!')
+    logging.info('Calibration:')
+    for i in SENSORS_CALIBRATION:
+        logging.info('')
+        logging.info('sensor ' + i[0] + ':')
+        for k, v in i[1].items():
+            logging.info(str(k) + ': ' + str(v))
 
     try:
-        st = statvfs('.')
-        available_space = st.f_bavail * st.f_frsize / 1024 / 1024
-        logging.info('Remaining disk space : %.1f MB' % available_space)
-    except:
-        pass
-    logging.info('Saving log to ' + log_file)
-
-    try:
-        slave_io = serial.Serial(slave_device, baudrate=57600, timeout=0.1)
-        slave_io.flush()
-        #slave_io = io.BufferedRandom(slave, buffer_size=128)  # FIX : BufferedRWPair does not attempt to synchronize accesses to its underlying raw streams. You should not pass it the same object as reader and writer; use BufferedRandom instead.
+        slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.1, bytesize=serial.EIGHTBITS,
+                                 parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
+                                 dsrdtr=False, rtscts=False, xonxoff=False)
+        slave_io.reset_output_buffer()
+        slave_io.reset_input_buffer()
         logging.info('Saving data to ' + data_file)
     except IOError as e:
         logging.error('*** Cannot open serial connexion with slave! : ' + str(e))
         status &= False
     try:
-            logging.debug('Master binding on (%s, %d)...' % (local_host, local_port))
-            master_socket.bind((local_host, local_port))
-            master_socket.listen(1)
-            logging.debug('Binding done!')
+        logging.debug('Master binding on (%s, %d)...' % (local_host, local_port))
+        master_socket.bind((local_host, local_port))
+        master_socket.listen(1)
+        logging.debug('Binding done!')
     except IOError as e:
-        logging.error('*** Cannot open server socket!' + str(e))  # TODO : What to do if raspardas cannot connect to server
+        logging.error('*** Cannot open server socket!' + str(e))  # TODO : What if raspardas cannot connect to server
         status &= False
     try:
         sd_file_io = gzip.open(data_file, 'ab+')
@@ -541,39 +546,6 @@ if __name__ == '__main__':
         logging.error('*** Cannot open file ! : ' + str(e))
         status &= False
 
-    if calibration_file != '':
-        logging.info('Calibration file: ' + calibration_file)
-        try:
-            with open(calibration_file, 'r') as cal:
-                cal.readline()  # header
-                for i in range(n_channels):
-                    calibration.append({})
-                    s = cal.readline().rstrip('\n').split(sep='\t')
-                    calibration[i]['sensor'] = s[0]
-                    calibration[i]['variable'] = s[1]
-                    calibration[i]['unit'] = s[2]
-                    calibration[i]['format'] = s[3]
-                    calibration[i]['coefs'] = []
-                    for j in range(5):
-                        calibration[i]['coefs'].append(float(s[4+j]))
-                    logging.info('  Sensor: %s     variable: %s     unit: %s        coefs: %s'
-                                 % (calibration[i]['sensor'], calibration[i]['variable'],
-                                    calibration[i]['unit'], str(calibration[i]['coefs'])))
-            raw_data = False
-        except IOError as e:
-            logging.error('*** Cannot read calibration file ! : ' + str(e))
-            raw_data = True
-            status &= False
-    else:
-        logging.warning('Default calibration : ')
-        for i in range(n_channels):
-            calibration.append({'sensor': '0000', 'variable': 'freq', 'unit': 'Hz', 'format': '%11.4f',
-                                'coefs': [0., 1., 0., 0., 0.]})
-            logging.info('  Sensor: %s     variable: %s     unit: %s        coefs: %s'
-                         % (calibration[i]['sensor'], calibration[i]['variable'],
-                            calibration[i]['unit'], str(calibration[i]['coefs'])))
-            raw_data = True
-
     if influxdb_logging:
         try:
             logging.info('Logging to database: %s' % DATABASE['dbname'])
@@ -581,6 +553,12 @@ if __name__ == '__main__':
                                     DATABASE['dbname'])
         except:
             logging.error('*** Unable to log to database %s' % DATABASE['dbname'])
+
+    if raw_data:
+        msg = 'Data is not calibrated'
+        if influxdb_logging:
+            msg += ' - It will not be logged in the database.'
+        logging.warning(msg)
 
     if status:
         try:
@@ -601,7 +579,7 @@ if __name__ == '__main__':
             slave_talker.start()
 
             logging.info('Configuring ardas...')
-            start_sequence(station, net_id, integration_period, calibration)
+            start_sequence()
             logging.info('Ardas configured !')
 
             master_connector = Thread(target=connect_master)
@@ -628,11 +606,11 @@ if __name__ == '__main__':
         finally:
             logging.info('Exiting - Closing file and communication ports...')
             try:
-                slave
+                slave_io
             except:
                 pass
             else:
-                slave.close()
+                slave_io.close()
             try:
                 sd_file_io
             except:
@@ -647,7 +625,7 @@ if __name__ == '__main__':
     else:
         logging.info('Exiting raspardas')
         try:
-            slave.close()
+            slave_io.close()
         except:
             pass
         try:
