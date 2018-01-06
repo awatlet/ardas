@@ -14,7 +14,7 @@ import serial
 from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS_CALIBRATION, MASTER_CONFIG, LOGGING_CONFIG
 from influxdb import InfluxDBClient
 
-version = 'v1.1.2.36'
+version = 'v1.1.2.37'
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
 if debug:
@@ -41,7 +41,7 @@ raw_data = False  # calibration should be set in settings, use default calibrati
 
 peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
 downloading = False
-pause = False
+pause = True  # used to suspend datalogging during some operations such as start_sequence
 stop = False
 
 
@@ -419,6 +419,27 @@ def start_sequence():
     while not slave_queue.empty():
         time.sleep(0.01)
     logging.debug('start_sequence : Wake up slave...')
+    if debug:
+        reply = False
+        while not reply:
+            msg = b'-999\r'
+            master_queue.put(msg)
+            logging.debug('start_sequence : Calling all ardas')
+            msg = b''
+            try:
+                msg = slave_queue.get(timeout=2)
+            except queue.Empty:
+                logging.debug('start_sequence : Timed out...')
+            if msg != b'':
+                try:
+                    logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
+                except UnicodeDecodeError as e:
+                    logging.debug('start_sequence : slave_queue exception...' + str(e))
+                if len(msg) > 3 and msg[0:4] == b'!HI ':
+                    logging.debug('start_sequence : Reply received!')
+                    reply = True
+                else:
+                    logging.debug('start_sequence : No proper reply received yet...')
     reply = False
     while not reply:
         msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r'
@@ -489,14 +510,15 @@ def start_sequence():
             now = datetime.datetime.utcfromtimestamp(c.request('europe.pool.ntp.org').tx_time)
             msg = '#SD %04d %02d %02d %02d %02d %02d\r' % (now.year, now.month, now.day, now.hour, now.minute, now.second)
             master_queue.put(bytes(msg.encode('ascii')))
-            logging.info('start_sequence : Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
+            logging.debug('start_sequence : Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
                          (now.year, now.month, now.day, now.hour, now.minute, now.second))
             try:
                 msg = slave_queue.get(timeout=0.5)
             except:
                 pass
             if msg[0:4] == b'!SD ':
-                logging.debug('start_sequence : Reply received!')
+                logging.info('start_sequence : Setted ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
+                             (now.year, now.month, now.day, now.hour, now.minute, now.second))
                 reply = True
             else:
                 logging.debug('start_sequence : No proper reply received yet...')
