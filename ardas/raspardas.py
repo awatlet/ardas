@@ -2,19 +2,19 @@ import binascii
 import datetime
 import gzip
 import logging
+from logging.handlers import RotatingFileHandler
 import queue
 import socket
 import time
 from os import path, mkdir, statvfs
 from struct import unpack_from
 from threading import Thread, Lock
-
 import ntplib
 import serial
-from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS_CALIBRATION, MASTER_CONFIG, LOGGING_CONFIG
+from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG
 from influxdb import InfluxDBClient
 
-version = 'v1.1.2.37'
+version = 'v1.1.2.38'
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
 if debug:
@@ -34,7 +34,7 @@ master_online = False
 
 # Connection and communication with slave
 slave_io = None
-n_channels = len(SENSORS_CALIBRATION)
+n_channels = len(SENSORS)
 chunk_size = 4096
 raw_data = False  # calibration should be set in settings, use default calibration if data should be stored in Hertz
 # raw_data should only be true if reading calibration file fails.
@@ -75,10 +75,12 @@ def init_logging():
     log_format = '%(asctime)-15s | %(process)d | %(levelname)s: %(message)s'
     if logging_to_console:
         logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
-                            handlers=[logging.FileHandler(log_file), logging.StreamHandler()])
+                            handlers=[RotatingFileHandler(log_file, maxBytes=LOGGING_CONFIG['max_bytes_log_file'],
+                                                          backupCount=5), logging.StreamHandler()])
     else:
         logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
-                            handlers=[logging.FileHandler(log_file)])
+                            handlers=[RotatingFileHandler(log_file, maxBytes=LOGGING_CONFIG['max_bytes_log_file'],
+                                                          backupCount=5)])
     logging.info('')
     logging.info('****************************')
     logging.info('*** NEW SESSION STARTING ***')
@@ -104,10 +106,12 @@ def listen_slave():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, downloading, slave_io, data_queue, n_channels, debug, slave_queue, master_queue, raw_data, \
+    global stop, downloading, slave_io, data_queue, n_channels, slave_queue, master_queue, raw_data, \
         influxdb_logging, master_online, pause
 
-    calibration = SENSORS_CALIBRATION
+    sensors = SENSORS
+    # slave_io.reset_input_buffer()
+    # slave_io.reset_output_buffer()
     while not stop:
         # Read incoming data from slave (ArDAS)
         try:
@@ -122,10 +126,9 @@ def listen_slave():
                 crc = slave_io.read(4)
                 record_crc = int.from_bytes(crc, 'big')
                 msg_crc = binascii.crc32(record)
-                if debug:
-                    logging.debug('record : %s' % str(record))
-                    logging.debug('record_crc : %d' % record_crc)
-                    logging.debug('msg_crc : %d' % msg_crc)
+                logging.debug('record : %s' % str(record))
+                logging.debug('record_crc : %d' % record_crc)
+                logging.debug('msg_crc : %d' % msg_crc)
                 if msg_crc == record_crc:
                     crc_check = True
                 else:
@@ -152,16 +155,15 @@ def listen_slave():
                         if raw_data:
                             decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
                         else:
-                            val[i] = calibration[i][1]['method'](freq[i], calibration[i][1]['parameters'])
+                            val[i] = sensors[i].output(freq[i])
                             decoded_record += ' %04d %11.4f' % (instr[i], val[i])
-
                     decoded_record += '\n'
                     logging.debug('Master connected: %s' % master_online)
                     if master_online and not raw_data:
                         cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
                         for i in range(n_channels):
-                            s = '| %04d: %' + calibration[i][1]['format'] + ' %s '
-                            cal_record += s % (instr[i], val[i], calibration[i][1]['unit'])
+                            s = '| %04d: ' + sensors[i].ouput_repr(freq[i]) + ' '
+                            cal_record += s % instr[i]
                         cal_record += '|\n'
                         slave_queue.put(cal_record.encode('utf-8'))
                     if influxdb_logging and not raw_data and not pause:
@@ -187,6 +189,7 @@ def listen_slave():
                         logging.warning('*** listen_slave thread - Unable to decode slave message...')
                     if not downloading:
                         slave_queue.put(msg)
+            time.sleep(0.2)
         except queue.Full:
             logging.warning('*** Data or slave queue is full!')
         except serial.SerialTimeoutException:
@@ -273,8 +276,7 @@ def listen_master():
                     except:
                         logging.warning('*** listen_master thread - Unable to decode master message...')
                     if msg[:-1] == b'#XB':
-                        logging.info('Full download request')
-                        full_download()
+                        logging.info('Full download is not available')
                     elif msg[:-1] == b'#XP':
                         logging.info('Partial download request')
                     elif msg[:-1] == b'#XS':
@@ -367,32 +369,6 @@ def write_disk():
     logging.debug('Closing write_disk thread...')
 
 
-def full_download():
-    """This is a full_download function.
-    """
-    # NOTE : This doesn't work
-    # NOTE : One solution could be to change file and send the previous one to avoid negative seeking in write mode
-    global downloading, data_file, master_connection, chunk_size, sd_file_lock
-
-    downloading = True
-    offset = 0
-    try:
-        while True:
-            sd_file_lock.acquire()
-            sd_file_io.seek(offset)
-            chunk = sd_file_io.read(chunk_size)
-            offset = sd_file_io.tell()
-            sd_file_lock.release()
-            if not chunk:
-                break
-            else:
-                master_connection.send(chunk)
-    except IOError as error:
-        logging.error('*** Download error :' + str(error))
-    logging.info('Download complete.')
-    downloading = False
-
-
 def save_file():
     """This is a save_file function.
     """
@@ -410,12 +386,11 @@ def save_file():
 
 
 def start_sequence():
-    global master_queue, slave_queue, n_channels, pause
+    global master_queue, slave_queue, n_channels
 
     logging.debug('Initiating start sequence...')
     logging.debug('____________________________')
 
-    pause = True
     while not slave_queue.empty():
         time.sleep(0.01)
     logging.debug('start_sequence : Wake up slave...')
@@ -424,22 +399,25 @@ def start_sequence():
         while not reply:
             msg = b'-999\r'
             master_queue.put(msg)
-            logging.debug('start_sequence : Calling all ardas')
+            logging.debug('start_sequence : Calling all ArDAS')
             msg = b''
-            try:
-                msg = slave_queue.get(timeout=2)
-            except queue.Empty:
-                logging.debug('start_sequence : Timed out...')
-            if msg != b'':
+            k = 3
+            while k > 0 and not reply:  # FIX: this does not seem to work properly each time (it loops endlessly)
                 try:
-                    logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
-                except UnicodeDecodeError as e:
-                    logging.debug('start_sequence : slave_queue exception...' + str(e))
-                if len(msg) > 3 and msg[0:4] == b'!HI ':
-                    logging.debug('start_sequence : Reply received!')
-                    reply = True
-                else:
-                    logging.debug('start_sequence : No proper reply received yet...')
+                    msg = slave_queue.get(timeout=2)
+                except queue.Empty:
+                    logging.debug('start_sequence : Timed out...')
+                if msg != b'':
+                    try:
+                        logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))
+                    except UnicodeDecodeError as e:
+                        logging.debug('start_sequence : slave_queue exception...' + str(e))
+                    if len(msg) > 3 and msg[0:4] == b'!HEY':
+                        logging.debug('start_sequence : Reply received!')
+                        reply = True
+                    else:
+                        logging.debug('start_sequence : No proper reply received yet...')
+                k -= 1
     reply = False
     while not reply:
         msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r'
@@ -472,8 +450,8 @@ def start_sequence():
         msg += b' '
         msg += bytes(str(n_channels).encode('ascii'))
         msg += b' '
-        for i in SENSORS_CALIBRATION:
-            msg += bytes(i[0].encode('ascii'))
+        for i in SENSORS:
+            msg += bytes(i.sensor_id.encode('ascii'))
             msg += b' '
         msg += b'31\r'
         master_queue.put(msg)
@@ -510,14 +488,14 @@ def start_sequence():
             now = datetime.datetime.utcfromtimestamp(c.request('europe.pool.ntp.org').tx_time)
             msg = '#SD %04d %02d %02d %02d %02d %02d\r' % (now.year, now.month, now.day, now.hour, now.minute, now.second)
             master_queue.put(bytes(msg.encode('ascii')))
-            logging.debug('start_sequence : Setting ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
+            logging.debug('start_sequence : Setting ArDAS date from NTP server: %04d %02d %02d %02d %02d %02d' %
                          (now.year, now.month, now.day, now.hour, now.minute, now.second))
             try:
-                msg = slave_queue.get(timeout=0.5)
+                msg = slave_queue.get(timeout=2.0)
             except:
                 pass
             if msg[0:4] == b'!SD ':
-                logging.info('start_sequence : Setted ardas date from NTP server: %04d %02d %02d %02d %02d %02d' %
+                logging.info('start_sequence : ArDAS date set from NTP server: %04d %02d %02d %02d %02d %02d' %
                              (now.year, now.month, now.day, now.hour, now.minute, now.second))
                 reply = True
             else:
@@ -526,23 +504,23 @@ def start_sequence():
             logging.debug('start_sequence : Unable to get date and time from to NTP !')
     logging.debug('Start sequence finished...')
     logging.debug('__________________________')
-    pause = False
 
 if __name__ == '__main__':
     init_logging()
 
     logging.info('ArDAS settings:')
-    logging.info('\tstation: %s' % ARDAS_CONFIG['station'])
-    logging.info('\tnet ID: %s' % ARDAS_CONFIG['net_id'])
-    logging.info('\tintegration period: %s' % ARDAS_CONFIG['integration_period'])
+    logging.info('   station: %s' % ARDAS_CONFIG['station'])
+    logging.info('   net ID: %s' % ARDAS_CONFIG['net_id'])
+    logging.info('   integration period: %s' % ARDAS_CONFIG['integration_period'])
     logging.info('')
-    logging.info('Calibration:')
-    for i in SENSORS_CALIBRATION:
+    logging.info('Sensors:')
+    for s in SENSORS:
+        logging.info('sensor ' + s.sensor_id + ':')
+        logging.info('   quantity: ' + s.quantity)
+        logging.info('   units: ' + s.units)
+        logging.info('   processing method: ' + repr(s.processing_method))
+        logging.info('   processing parameters: ' + repr(s.processing_parameters))
         logging.info('')
-        logging.info('sensor ' + i[0] + ':')
-        for k, v in i[1].items():
-            logging.info(str(k) + ': ' + str(v))
-
     try:
         slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.1, bytesize=serial.EIGHTBITS,
                                  parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
@@ -588,6 +566,7 @@ if __name__ == '__main__':
             net_id = ARDAS_CONFIG['net_id']
             integration_period = ARDAS_CONFIG['integration_period']
 
+            pause = True
             # master_queue.put(cmd)
             sd_file_lock = Lock()
             disk_writer = Thread(target=write_disk)
@@ -600,9 +579,9 @@ if __name__ == '__main__':
             slave_talker.setDaemon(True)
             slave_talker.start()
 
-            logging.info('Configuring ardas...')
+            logging.info('Configuring ArDAS...')
             start_sequence()
-            logging.info('Ardas configured !')
+            logging.info('ArDAS configured !')
 
             master_connector = Thread(target=connect_master)
             master_connector.setDaemon(True)
@@ -613,9 +592,12 @@ if __name__ == '__main__':
             master_listener = Thread(target=listen_master)
             master_listener.setDaemon(True)
             master_listener.start()
+            pause = False
+
+            logging.info('*** Starting logging... ***')
 
             while not stop:
-                time.sleep(0.1)
+                time.sleep(0.2)
 
             logging.info('Exiting - Waiting for threads to end...')
             slave_listener.join()
