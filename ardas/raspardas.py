@@ -2,7 +2,7 @@ from binascii import crc32
 import datetime
 import gzip  # TODO: Remove this when Compressed Sized Time Rotating Logging will be implemented
 import logging
-from logging.handlers import RotatingFileHandler
+# from logging.handlers import RotatingFileHandler
 import queue
 import socket
 from time import gmtime, sleep
@@ -11,11 +11,11 @@ from struct import unpack_from
 from threading import Thread, Lock
 import ntplib
 import serial
-from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG
+from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG, DATA_LOGGING_CONFIG
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 
-version = 'v1.1.2.39'
+version = 'v1.1.2.40'
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
 if debug:
@@ -23,7 +23,7 @@ if debug:
 else:
     logging_level = logging.INFO
 logging_to_console = LOGGING_CONFIG['logging_to_console']
-influxdb_logging = LOGGING_CONFIG['influxdb_logging']
+influxdb_logging = DATA_LOGGING_CONFIG['influxdb_logging']
 
 # Connection to master
 local_host = MASTER_CONFIG['local_host']
@@ -37,8 +37,7 @@ master_online = False
 slave_io = None
 n_channels = len(SENSORS)
 chunk_size = 4096
-raw_data = False  # calibration should be set in settings, use default calibration if data should be stored in Hertz
-# raw_data should only be true if reading calibration file fails.
+raw_data = ARDAS_CONFIG['raw_data_on_disk']
 
 peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
 downloading = False
@@ -62,12 +61,14 @@ data_path = path.join(base_path, 'raw')
 if not path.isdir(data_path):
     mkdir(data_path)
 
-# TODO: Use variables in settings.py to set file_name, maxBytes, interval, backupCount and when parameters
-data_log_filename = path.join(data_path, 'data_log')
+data_log_filename = path.join(data_path, DATA_LOGGING_CONFIG['file_name'])
 data_logger = logging.getLogger('MyLogger')
 data_logger.setLevel(logging.INFO)
-handler = CompressedSizedTimedRotatingFileHandler(data_log_filename, maxBytes=1000, backupCount=5,
-                                                  when='s', interval=10)
+handler = CompressedSizedTimedRotatingFileHandler(data_log_filename,
+                                                  maxBytes=DATA_LOGGING_CONFIG['max_bytes'],
+                                                  backupCount=DATA_LOGGING_CONFIG['backup_count'],
+                                                  when=DATA_LOGGING_CONFIG['when'],
+                                                  interval=DATA_LOGGING_CONFIG['interval'])
 data_logger.addHandler(handler)
 
 
@@ -84,19 +85,28 @@ def init_logging():
     if not path.isdir(raw_path):
         mkdir(raw_path)
     data_file = path.join(raw_path, 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
-    log_file = path.join(log_path, 'raspardas.log')
+    log_file = path.join(log_path, LOGGING_CONFIG['file_name'])
 
     # Set message logging format and level
     logging.Formatter.converter = gmtime
     log_format = '%(asctime)-15s | %(process)d | %(levelname)s: %(message)s'
     if logging_to_console:
         logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
-                            handlers=[RotatingFileHandler(log_file, maxBytes=LOGGING_CONFIG['max_bytes_log_file'],
-                                                          backupCount=5), logging.StreamHandler()])
+                            handlers=[
+                                CompressedSizedTimedRotatingFileHandler(log_file, maxBytes=LOGGING_CONFIG['max_bytes'],
+                                                                        backupCount=LOGGING_CONFIG['backup_count'],
+                                                                        when=LOGGING_CONFIG['when'],
+                                                                        interval=LOGGING_CONFIG['interval']),
+                                logging.StreamHandler()]
+                            )
     else:
         logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
-                            handlers=[RotatingFileHandler(log_file, maxBytes=LOGGING_CONFIG['max_bytes_log_file'],
-                                                          backupCount=5)])
+                            handlers=[
+                                CompressedSizedTimedRotatingFileHandler(log_file, maxBytes=LOGGING_CONFIG['max_bytes'],
+                                                                        backupCount=LOGGING_CONFIG['backup_count'],
+                                                                        when=LOGGING_CONFIG['when'],
+                                                                        interval=LOGGING_CONFIG['interval'])]
+                            )
     logging.info('')
     logging.info('****************************')
     logging.info('*** NEW SESSION STARTING ***')
@@ -176,17 +186,26 @@ def listen_slave():
                             decoded_record += ' %04d %11.4f' % (instr[i], val[i])
                     decoded_record += '\n'
                     logging.debug('Master connected: %s' % master_online)
-                    logging.warning('Raw data: ' + str(raw_data))
+                    logging.warning('Raw data: ' + str(raw_data))  # TODO: remove
                     if not raw_data:
+                        logging.warning('A')  # TODO: remove
                         cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
+                        logging.warning('B')  # TODO: remove
                         for i in range(n_channels):
-                            s = '| %04d: ' + sensors[i].ouput_repr(freq[i]) + ' '
-                            cal_record += s % instr[i]
+                            s = '| %04d: ' % instr[i]
+                            logging.warning(s)  # TODO: remove
+                            s += sensors[i].output_repr(freq[i])
+                            s += ' '
+                            logging.warning(s)  # TODO: remove
+                            cal_record += s
+                            logging.warning('D')  # TODO: remove
                         cal_record += '|'
-                        logging.warning(cal_record)
+                        logging.warning('E')  # TODO: remove
+                        logging.warning(cal_record)  # TODO: remove
                         if not pause:
                             data_logger.info(cal_record.encode('utf-8'))
                         cal_record += '\n'
+                        logging.warning('F')  # TODO: remove
                         if master_online:
                             slave_queue.put(cal_record.encode('utf-8'))
                     if influxdb_logging and not raw_data and not pause:
@@ -421,14 +440,14 @@ def start_sequence():
     if debug:
         reply = False
         while not reply:
-            msg = b'-999\r'
+            msg = b'-999\r\n'  # FIX: Should be /r
             master_queue.put(msg)
             logging.debug('start_sequence : Calling all ArDAS')
             msg = b''
             k = 10
             while k > 0 and not reply:  # FIX: this does not seem to work properly each time (it loops endlessly)
                 try:
-                    msg = slave_queue.get()  # (timeout=0.25)
+                    msg = slave_queue.get(timeout=0.25)
                 except queue.Empty:
                     logging.debug('start_sequence : Timed out...')
                 if msg != b'':
@@ -447,14 +466,14 @@ def start_sequence():
                 k -= 1
     reply = False
     while not reply:
-        msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r'
+        msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r\n'  # FIX: Should be /r
         master_queue.put(msg)
         logging.debug('start_sequence : Sending wake-up command')
         msg = b''
         k = 10
         while k > 0 and not reply:
             try:
-                msg = slave_queue.get() # timeout=0.25)
+                msg = slave_queue.get(timeout=0.25)
             except queue.Empty:
                 logging.debug('start_sequence : Timed out...')
             if msg != b'':
@@ -488,7 +507,7 @@ def start_sequence():
         master_queue.put(msg)
         logging.debug('start_sequence : Sending reconfig command')
         try:
-            msg = slave_queue.get() # timeout=0.25)
+            msg = slave_queue.get(timeout=0.25)
         except:
             pass
         if msg[0:4] == b'!ZR ':
@@ -543,6 +562,7 @@ if __name__ == '__main__':
     logging.info('   station: %s' % ARDAS_CONFIG['station'])
     logging.info('   net ID: %s' % ARDAS_CONFIG['net_id'])
     logging.info('   integration period: %s' % ARDAS_CONFIG['integration_period'])
+    logging.info('   n_channels: %d' %len(SENSORS))
     logging.info('')
     logging.info('Sensors:')
     for s in SENSORS:

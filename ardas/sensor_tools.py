@@ -103,8 +103,13 @@ class FMSensor(object):
         :return: representation of the processed quantity
         :rtype: string
         """
-        s = self.output_format + ' ' + self.units
-        calibrated_output = s % self.output(value)
+
+        try:
+            s = self.output_format + ' ' + self.units
+            calibrated_output = s % self.output(value)
+        except:
+            calibrated_output = '*** error ***'
+        assert isinstance(calibrated_output, str)
         return calibrated_output
 
     def save(self):
