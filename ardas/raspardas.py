@@ -1,11 +1,11 @@
-import binascii
+from binascii import crc32
 import datetime
-import gzip
+import gzip  # TODO: Remove this when Compressed Sized Time Rotating Logging will be implemented
 import logging
 from logging.handlers import RotatingFileHandler
 import queue
 import socket
-import time
+from time import gmtime, sleep
 from os import path, mkdir, statvfs
 from struct import unpack_from
 from threading import Thread, Lock
@@ -13,8 +13,9 @@ import ntplib
 import serial
 from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG
 from influxdb import InfluxDBClient
+from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 
-version = 'v1.1.2.38'
+version = 'v1.1.2.39'
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
 if debug:
@@ -54,6 +55,21 @@ data_file = ''
 log_file = ''
 status = True
 
+# Data logging setup
+# Set data and message logging paths
+base_path = path.dirname(__file__)
+data_path = path.join(base_path, 'raw')
+if not path.isdir(data_path):
+    mkdir(data_path)
+
+# TODO: Use variables in settings.py to set file_name, maxBytes, interval, backupCount and when parameters
+data_log_filename = path.join(data_path, 'data_log')
+data_logger = logging.getLogger('MyLogger')
+data_logger.setLevel(logging.INFO)
+handler = CompressedSizedTimedRotatingFileHandler(data_log_filename, maxBytes=1000, backupCount=5,
+                                                  when='s', interval=10)
+data_logger.addHandler(handler)
+
 
 def init_logging():
     global data_file, log_file, logging_level, logging_to_console
@@ -71,7 +87,7 @@ def init_logging():
     log_file = path.join(log_path, 'raspardas.log')
 
     # Set message logging format and level
-    logging.Formatter.converter = time.gmtime
+    logging.Formatter.converter = gmtime
     log_format = '%(asctime)-15s | %(process)d | %(levelname)s: %(message)s'
     if logging_to_console:
         logging.basicConfig(format=log_format, datefmt='%Y/%m/%d %H:%M:%S UTC', level=logging_level,
@@ -107,7 +123,7 @@ def listen_slave():
     the main thread ends.
     """
     global stop, downloading, slave_io, data_queue, n_channels, slave_queue, master_queue, raw_data, \
-        influxdb_logging, master_online, pause
+        influxdb_logging, master_online, pause, data_logger
 
     sensors = SENSORS
     # slave_io.reset_input_buffer()
@@ -118,14 +134,16 @@ def listen_slave():
             byte = b''
             msg = b''
             while byte != b'\r' and byte != b'$':
+                logging.warning('listen_slave: waiting new byte...')
                 byte = slave_io.read(1)
                 msg += byte
+                logging.warning('listen_slave: %s', msg.decode('ascii', errors='replace'))
             if byte == b'$':
                 record = byte
                 record += slave_io.read(32)
                 crc = slave_io.read(4)
                 record_crc = int.from_bytes(crc, 'big')
-                msg_crc = binascii.crc32(record)
+                msg_crc = crc32(record)
                 logging.debug('record : %s' % str(record))
                 logging.debug('record_crc : %d' % record_crc)
                 logging.debug('msg_crc : %d' % msg_crc)
@@ -145,7 +163,6 @@ def listen_slave():
                         freq.append(unpack_from('>f', record[17+4*i:21+4*i])[0])
                     decoded_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S') \
                                      + ' %04d' % integration_period
-
                     if raw_data:
                         decoded_record += ' R'
                     else:
@@ -159,19 +176,26 @@ def listen_slave():
                             decoded_record += ' %04d %11.4f' % (instr[i], val[i])
                     decoded_record += '\n'
                     logging.debug('Master connected: %s' % master_online)
-                    if master_online and not raw_data:
+                    logging.warning('Raw data: ' + str(raw_data))
+                    if not raw_data:
                         cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
                         for i in range(n_channels):
                             s = '| %04d: ' + sensors[i].ouput_repr(freq[i]) + ' '
                             cal_record += s % instr[i]
-                        cal_record += '|\n'
-                        slave_queue.put(cal_record.encode('utf-8'))
+                        cal_record += '|'
+                        logging.warning(cal_record)
+                        if not pause:
+                            data_logger.info(cal_record.encode('utf-8'))
+                        cal_record += '\n'
+                        if master_online:
+                            slave_queue.put(cal_record.encode('utf-8'))
                     if influxdb_logging and not raw_data and not pause:
                         data = []
                         for i in range(n_channels):
-                            data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' % instr[i]},
-                                        'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
-                                         'fields': {'value': val[i]}})
+                            if sensors[i].log:
+                                data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' % instr[i]},
+                                             'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
+                                             'fields': {'value': val[i]}})
                         logging.debug('Writing to InfluxDB : %s' % str(data))
                         client.write_points(data)
                     # Send data to data_queue
@@ -184,12 +208,12 @@ def listen_slave():
                 if len(msg) > 0:
                     # Sort data to store on SD from data to repeat to master
                     try:
-                        logging.debug('Slave says : ' + msg.decode('ascii'))
+                        logging.info('Slave says : ' + msg.decode('ascii'))
                     except:
                         logging.warning('*** listen_slave thread - Unable to decode slave message...')
                     if not downloading:
                         slave_queue.put(msg)
-            time.sleep(0.2)
+            sleep(0.2)
         except queue.Full:
             logging.warning('*** Data or slave queue is full!')
         except serial.SerialTimeoutException:
@@ -216,7 +240,7 @@ def talk_slave():
             slave_io.write(msg)
             logging.debug('In waiting: ' + str(slave_io.in_waiting))
             logging.debug('Out waiting: ' + str(slave_io.out_waiting))
-            slave_io.flush()  # NOTE: this line was commented as a test
+            #slave_io.flush()  # NOTE: this line was commented as a test
         except queue.Empty:
             pass
         except serial.SerialTimeoutException:
@@ -392,7 +416,7 @@ def start_sequence():
     logging.debug('____________________________')
 
     while not slave_queue.empty():
-        time.sleep(0.01)
+        sleep(0.01)
     logging.debug('start_sequence : Wake up slave...')
     if debug:
         reply = False
@@ -401,10 +425,10 @@ def start_sequence():
             master_queue.put(msg)
             logging.debug('start_sequence : Calling all ArDAS')
             msg = b''
-            k = 3
+            k = 10
             while k > 0 and not reply:  # FIX: this does not seem to work properly each time (it loops endlessly)
                 try:
-                    msg = slave_queue.get(timeout=2)
+                    msg = slave_queue.get()  # (timeout=0.25)
                 except queue.Empty:
                     logging.debug('start_sequence : Timed out...')
                 if msg != b'':
@@ -412,11 +436,14 @@ def start_sequence():
                         logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))
                     except UnicodeDecodeError as e:
                         logging.debug('start_sequence : slave_queue exception...' + str(e))
-                    if len(msg) > 3 and msg[0:4] == b'!HEY':
+                    if b'Hey!' in msg:
                         logging.debug('start_sequence : Reply received!')
                         reply = True
                     else:
                         logging.debug('start_sequence : No proper reply received yet...')
+                else:
+                    logging.debug('start_sequence : No message received yet...')
+                # sleep(0.25)
                 k -= 1
     reply = False
     while not reply:
@@ -424,20 +451,24 @@ def start_sequence():
         master_queue.put(msg)
         logging.debug('start_sequence : Sending wake-up command')
         msg = b''
-        try:
-            msg = slave_queue.get(timeout=0.1)
-        except queue.Empty:
-            logging.debug('start_sequence : Timed out...')
-        if msg != b'':
+        k = 10
+        while k > 0 and not reply:
             try:
-                logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
-            except UnicodeDecodeError as e:
-                logging.debug('start_sequence : slave_queue exception...' + str(e))
-            if len(msg) > 3 and msg[0:4] == b'!HI ':
-                logging.debug('start_sequence : Reply received!')
-                reply = True
-            else:
-                logging.debug('start_sequence : No proper reply received yet...')
+                msg = slave_queue.get() # timeout=0.25)
+            except queue.Empty:
+                logging.debug('start_sequence : Timed out...')
+            if msg != b'':
+                try:
+                    logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
+                except UnicodeDecodeError as e:
+                    logging.debug('start_sequence : slave_queue exception...' + str(e))
+                if len(msg) > 3 and msg[0:4] == b'!HI ':
+                    logging.debug('start_sequence : Reply received!')
+                    reply = True
+                else:
+                    logging.debug('start_sequence : No proper reply received yet...')
+            # sleep(0.25)
+            k -= 1
 
     reply = False
     while not reply:
@@ -457,7 +488,7 @@ def start_sequence():
         master_queue.put(msg)
         logging.debug('start_sequence : Sending reconfig command')
         try:
-            msg = slave_queue.get(timeout=0.5)
+            msg = slave_queue.get() # timeout=0.25)
         except:
             pass
         if msg[0:4] == b'!ZR ':
@@ -471,7 +502,7 @@ def start_sequence():
         master_queue.put(msg)
         logging.debug('start_sequence : Sending no echo command')
         try:
-            msg = slave_queue.get(timeout=0.5)
+            msg = slave_queue.get(timeout=0.25)
         except:
             pass
         if msg[0:4] == b'!E0 ':
@@ -491,7 +522,7 @@ def start_sequence():
             logging.debug('start_sequence : Setting ArDAS date from NTP server: %04d %02d %02d %02d %02d %02d' %
                          (now.year, now.month, now.day, now.hour, now.minute, now.second))
             try:
-                msg = slave_queue.get(timeout=2.0)
+                msg = slave_queue.get(timeout=0.25)
             except:
                 pass
             if msg[0:4] == b'!SD ':
@@ -520,6 +551,7 @@ if __name__ == '__main__':
         logging.info('   units: ' + s.units)
         logging.info('   processing method: ' + repr(s.processing_method))
         logging.info('   processing parameters: ' + repr(s.processing_parameters))
+        logging.info('   logging output to influxDB: ' + repr(s.log))
         logging.info('')
     try:
         slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.1, bytesize=serial.EIGHTBITS,
@@ -597,7 +629,7 @@ if __name__ == '__main__':
             logging.info('*** Starting logging... ***')
 
             while not stop:
-                time.sleep(0.2)
+                sleep(0.2)
 
             logging.info('Exiting - Waiting for threads to end...')
             slave_listener.join()

@@ -120,9 +120,8 @@ class FMSensor(object):
 class UncalibratedFMSensor(FMSensor):
     """ A subclass of the sensor object with a simpler """
     def __init__(self, sensor_id='0000', log_output=True):
-        super().__init__(sensor_id=sensor_id)
-        #self.sensor_id = sensor_id
-        self.log_output = log_output
+        super().__init__(sensor_id=sensor_id, log_output=log_output)
+
 
 if __name__ == '__main__':
     t = polynomial(25000, [-16.9224032438, 0.0041525221, -1.31475837290789e-07, 2.39122208189129e-12,

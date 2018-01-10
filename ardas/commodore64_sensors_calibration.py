@@ -17,5 +17,5 @@ if __name__ == '__main__':
         print(s.sensor_id + ' - ' + s.quantity + ' : ' + s.output_repr(10000))
         s.save()
     print('reload sensor...')
-    s = st.load_sensor('0003')
-    print(s.sensor_id + ' - ' + s.quantity + ' : ' + s.output_repr(10000))
+    s = st.load_sensor('0001')
+    print(s.sensor_id + ' - ' + s.quantity + ' : ' + s.output_repr(10000) + ' Log:' + str(s.log))
