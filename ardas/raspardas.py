@@ -1,21 +1,19 @@
 from binascii import crc32
 import datetime
-import gzip  # TODO: Remove this when Compressed Sized Time Rotating Logging will be implemented
 import logging
-# from logging.handlers import RotatingFileHandler
 import queue
 import socket
 from time import gmtime, sleep
 from os import path, mkdir, statvfs
 from struct import unpack_from
-from threading import Thread, Lock
+from threading import Thread
 import ntplib
 import serial
 from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG, DATA_LOGGING_CONFIG
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 
-version = 'v1.1.2.40'
+version = 'v1.1.2.41'
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
 if debug:
@@ -47,17 +45,14 @@ stop = False
 
 slave_queue = queue.Queue()  # what comes from ArDAS
 master_queue = queue.Queue()  # what comes from Master (e.g. cron task running client2.py)
-data_queue = queue.Queue()  # what should be written on disk
 
 # Remaining initialization
-data_file = ''
-log_file = ''
 status = True
 
 # Data logging setup
 # Set data and message logging paths
 base_path = path.dirname(__file__)
-data_path = path.join(base_path, 'raw')
+data_path = path.join(base_path, 'data')
 if not path.isdir(data_path):
     mkdir(data_path)
 
@@ -73,18 +68,13 @@ data_logger.addHandler(handler)
 
 
 def init_logging():
-    global data_file, log_file, logging_level, logging_to_console
+    global logging_level, logging_to_console
     """ This is the init sequence for the logging system """
 
     # Set data and message logging paths
-    base_path = path.dirname(__file__)
-    log_path = path.join(base_path, 'logs')
-    raw_path = path.join(base_path, 'raw')
+    log_path = path.join(path.dirname(__file__), 'logs')
     if not path.isdir(log_path):
         mkdir(log_path)
-    if not path.isdir(raw_path):
-        mkdir(raw_path)
-    data_file = path.join(raw_path, 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
     log_file = path.join(log_path, LOGGING_CONFIG['file_name'])
 
     # Set message logging format and level
@@ -144,10 +134,8 @@ def listen_slave():
             byte = b''
             msg = b''
             while byte != b'\r' and byte != b'$':
-                logging.warning('listen_slave: waiting new byte...')
                 byte = slave_io.read(1)
                 msg += byte
-                logging.warning('listen_slave: %s', msg.decode('ascii', errors='replace'))
             if byte == b'$':
                 record = byte
                 record += slave_io.read(32)
@@ -179,36 +167,27 @@ def listen_slave():
                         decoded_record += ' C'
                         val = [0.]*n_channels
                     for i in range(n_channels):
+                        val[i] = sensors[i].output(freq[i])
                         if raw_data:
                             decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
                         else:
-                            val[i] = sensors[i].output(freq[i])
                             decoded_record += ' %04d %11.4f' % (instr[i], val[i])
                     decoded_record += '\n'
                     logging.debug('Master connected: %s' % master_online)
-                    logging.warning('Raw data: ' + str(raw_data))  # TODO: remove
                     if not raw_data:
-                        logging.warning('A')  # TODO: remove
                         cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
-                        logging.warning('B')  # TODO: remove
                         for i in range(n_channels):
                             s = '| %04d: ' % instr[i]
-                            logging.warning(s)  # TODO: remove
                             s += sensors[i].output_repr(freq[i])
                             s += ' '
-                            logging.warning(s)  # TODO: remove
                             cal_record += s
-                            logging.warning('D')  # TODO: remove
                         cal_record += '|'
-                        logging.warning('E')  # TODO: remove
-                        logging.warning(cal_record)  # TODO: remove
                         if not pause:
-                            data_logger.info(cal_record.encode('utf-8'))
+                            data_logger.info(cal_record)
                         cal_record += '\n'
-                        logging.warning('F')  # TODO: remove
                         if master_online:
                             slave_queue.put(cal_record.encode('utf-8'))
-                    if influxdb_logging and not raw_data and not pause:
+                    if influxdb_logging and not pause:
                         data = []
                         for i in range(n_channels):
                             if sensors[i].log:
@@ -217,17 +196,13 @@ def listen_slave():
                                              'fields': {'value': val[i]}})
                         logging.debug('Writing to InfluxDB : %s' % str(data))
                         client.write_points(data)
-                    # Send data to data_queue
-                    logging.debug('Storing : ' + decoded_record)
-                    data_queue.put(decoded_record.encode('utf-8'))
                 else:
                     logging.warning('*** Bad crc : corrupted data is not stored !')
 
             else:
                 if len(msg) > 0:
-                    # Sort data to store on SD from data to repeat to master
                     try:
-                        logging.info('Slave says : ' + msg.decode('ascii'))
+                        logging.debug('Slave says : ' + msg.decode('ascii'))
                     except:
                         logging.warning('*** listen_slave thread - Unable to decode slave message...')
                     if not downloading:
@@ -326,9 +301,6 @@ def listen_master():
                         logging.info('Aborting download request')
                     elif msg[:-1] == b'#ZF':
                         logging.info('Reset request')
-                    elif msg[:-1] == b'#CF':
-                        logging.info('Change file request')
-                        save_file()
                     elif msg[:-1] == b'#PA':
                         if pause:
                             logging.info('Resume data logging')
@@ -383,51 +355,6 @@ def talk_master():
     logging.debug('Closing talk_master thread...')
 
 
-def write_disk():
-    """This is a writer thread function.
-    It processes items in the queue one after
-    another.  This daemon threads runs into an
-    infinite loop, and only exit when
-    the main thread ends.
-    """
-    global stop, sd_file_io, data_queue, sd_file_lock, pause
-
-    offset = sd_file_io.tell()
-    while not stop:
-        try:
-            msg = data_queue.get(timeout=0.1)
-            logging.debug('Data queue length : %d' % data_queue.qsize())
-            if len(msg) > 0:
-                if not pause:
-                    logging.debug('Writing to disk :' + msg.decode('ascii'))
-                    sd_file_lock.acquire()
-                    sd_file_io.seek(offset)
-                    sd_file_io.write(msg)
-                    sd_file_io.flush()
-                    offset = sd_file_io.tell()
-                    sd_file_lock.release()
-        except queue.Empty:
-            pass
-    sd_file_io.flush()
-    logging.debug('Closing write_disk thread...')
-
-
-def save_file():
-    """This is a save_file function.
-    """
-    global data_file, sd_file_io, sd_file_lock, master_connection
-
-    sd_file_lock.acquire()
-    sd_file_io.close()
-    logging.info('File ' + data_file + ' saved.')
-
-    base_path = path.dirname(__file__)
-    data_file = path.join(base_path, 'raw' + datetime.datetime.utcnow().strftime('_%Y%m%d_%H%M%S') + '.dat.gz')
-    sd_file_io = gzip.open(data_file, "ab+")
-    sd_file_lock.release()
-    logging.info('New file ' + data_file + ' created.')
-
-
 def start_sequence():
     global master_queue, slave_queue, n_channels
 
@@ -451,10 +378,6 @@ def start_sequence():
                 except queue.Empty:
                     logging.debug('start_sequence : Timed out...')
                 if msg != b'':
-                    try:
-                        logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))
-                    except UnicodeDecodeError as e:
-                        logging.debug('start_sequence : slave_queue exception...' + str(e))
                     if b'Hey!' in msg:
                         logging.debug('start_sequence : Reply received!')
                         reply = True
@@ -462,7 +385,7 @@ def start_sequence():
                         logging.debug('start_sequence : No proper reply received yet...')
                 else:
                     logging.debug('start_sequence : No message received yet...')
-                # sleep(0.25)
+                sleep(0.25)
                 k -= 1
     reply = False
     while not reply:
@@ -477,16 +400,12 @@ def start_sequence():
             except queue.Empty:
                 logging.debug('start_sequence : Timed out...')
             if msg != b'':
-                try:
-                    logging.debug('start_sequence : Incoming message: ' + msg.decode('ascii'))  # TODO: remove this
-                except UnicodeDecodeError as e:
-                    logging.debug('start_sequence : slave_queue exception...' + str(e))
                 if len(msg) > 3 and msg[0:4] == b'!HI ':
                     logging.debug('start_sequence : Reply received!')
                     reply = True
                 else:
                     logging.debug('start_sequence : No proper reply received yet...')
-            # sleep(0.25)
+            sleep(0.25)
             k -= 1
 
     reply = False
@@ -505,6 +424,7 @@ def start_sequence():
             msg += b' '
         msg += b'31\r'
         master_queue.put(msg)
+        sleep(1)
         logging.debug('start_sequence : Sending reconfig command')
         try:
             msg = slave_queue.get(timeout=0.25)
@@ -515,6 +435,7 @@ def start_sequence():
             reply = True
         else:
             logging.debug('start_sequence : No proper reply received yet...')
+
     reply = False
     while not reply:
         msg = b'#E0\r'
@@ -562,7 +483,6 @@ if __name__ == '__main__':
     logging.info('   station: %s' % ARDAS_CONFIG['station'])
     logging.info('   net ID: %s' % ARDAS_CONFIG['net_id'])
     logging.info('   integration period: %s' % ARDAS_CONFIG['integration_period'])
-    logging.info('   n_channels: %d' %len(SENSORS))
     logging.info('')
     logging.info('Sensors:')
     for s in SENSORS:
@@ -579,7 +499,8 @@ if __name__ == '__main__':
                                  dsrdtr=False, rtscts=False, xonxoff=False)
         slave_io.reset_output_buffer()
         slave_io.reset_input_buffer()
-        logging.info('Saving data to ' + data_file)
+        logging.info('Saving data to ' + data_log_filename)
+        logging.info('Raw data: ' + str(raw_data))
     except IOError as e:
         logging.error('*** Cannot open serial connexion with slave! : ' + str(e))
         status &= False
@@ -590,12 +511,6 @@ if __name__ == '__main__':
         logging.debug('Binding done!')
     except IOError as e:
         logging.error('*** Cannot open server socket!' + str(e))  # TODO : What if raspardas cannot connect to server
-        status &= False
-    try:
-        sd_file_io = gzip.open(data_file, 'ab+')
-        # sd_file_io = io.BufferedRandom(sd_file, buffer_size=128)
-    except IOError as e:
-        logging.error('*** Cannot open file ! : ' + str(e))
         status &= False
 
     if influxdb_logging:
@@ -620,10 +535,6 @@ if __name__ == '__main__':
 
             pause = True
             # master_queue.put(cmd)
-            sd_file_lock = Lock()
-            disk_writer = Thread(target=write_disk)
-            disk_writer.setDaemon(True)
-            disk_writer.start()
             slave_listener = Thread(target=listen_slave)
             slave_listener.setDaemon(True)
             slave_listener.start()
@@ -649,7 +560,7 @@ if __name__ == '__main__':
             logging.info('*** Starting logging... ***')
 
             while not stop:
-                sleep(0.2)
+                sleep(0.25)
 
             logging.info('Exiting - Waiting for threads to end...')
             slave_listener.join()
@@ -657,7 +568,6 @@ if __name__ == '__main__':
             master_listener.join()
             master_connector.join()
             slave_talker.join()
-            disk_writer.join()
 
         finally:
             logging.info('Exiting - Closing file and communication ports...')
@@ -667,12 +577,6 @@ if __name__ == '__main__':
                 pass
             else:
                 slave_io.close()
-            try:
-                sd_file_io
-            except:
-                pass
-            else:
-                sd_file_io.close()
             logging.info('Exiting raspardas')
             logging.info('****************************')
             logging.info('***    SESSION ENDING    ***')
@@ -682,9 +586,5 @@ if __name__ == '__main__':
         logging.info('Exiting raspardas')
         try:
             slave_io.close()
-        except:
-            pass
-        try:
-            sd_file_io.close()
         except:
             pass
