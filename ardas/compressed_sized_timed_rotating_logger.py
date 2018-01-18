@@ -1,6 +1,5 @@
 import time
 import os
-import logging
 import logging.handlers as handlers
 import zipfile
 
