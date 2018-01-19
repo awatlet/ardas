@@ -94,7 +94,7 @@ status = True
 
 
 def init_logging():
-    global msg_logger, data_logger, logging_level, data_log_filename, debug, client, slave_io
+    global msg_logger, logging_level, data_log_filename, debug, client, slave_io
     """ This is the init sequence for the logging system """
 
     init_logging_status = True

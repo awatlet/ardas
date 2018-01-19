@@ -1,4 +1,4 @@
 pyserial
-pandas
+pysftp
 ntplib
 influxdb
