@@ -10,15 +10,12 @@ class CompressedSizedTimedRotatingFileHandler(handlers.TimedRotatingFileHandler)
     to the next when the current file reaches a certain size, or at certain
     timed intervals
     """
-    def __init__(self, filename, mode='a', maxBytes=0, backupCount=0, encoding=None,
-                 delay=0, when='h', interval=1, utc=False):
-        # If rotation/rollover is wanted, it doesn't make sense to use another
-        # mode. If for example 'w' were specified, then if there were multiple
-        # runs of the calling application, the logs from previous runs would be
-        # lost if the 'w' is respected, because the log file would be truncated
-        # on each run.
-        handlers.TimedRotatingFileHandler.__init__(self, filename, when, interval, backupCount, encoding, delay, utc)
-        self.maxBytes = maxBytes
+    def __init__(self, filename, max_bytes=0, backup_count=0, encoding=None,
+                 delay=0, when='h', interval=1, utc=False, zip_mode=zipfile.ZIP_DEFLATED):
+        handlers.TimedRotatingFileHandler.__init__(self, filename=filename, when=when, interval=interval, utc=utc,
+                                                   backupCount=backup_count, encoding=encoding, delay=delay)
+        self.maxBytes = max_bytes
+        self.zip_mode = zip_mode
 
     def shouldRollover(self, record):
         """
@@ -31,7 +28,7 @@ class CompressedSizedTimedRotatingFileHandler(handlers.TimedRotatingFileHandler)
             self.stream = self._open()
         if self.maxBytes > 0:                   # are we rolling over?
             msg = "%s\n" % self.format(record)
-            self.stream.seek(0, 2)  # due to non-posix-compliant Windows feature
+            self.stream.seek(0, 2)              # due to non-posix-compliant Windows feature
             if self.stream.tell() + len(msg) >= self.maxBytes:
                 return True
         t = int(time.time())
@@ -48,7 +45,7 @@ class CompressedSizedTimedRotatingFileHandler(handlers.TimedRotatingFileHandler)
             if file_name.startswith(prefix) and not file_name.endswith('.zip'):
                 result.append(file_name)
         result.sort()
-        return os.path(dir_name, result[0])
+        return os.path.join(dir_name, result[0])
 
     def doRollover(self):
         super(CompressedSizedTimedRotatingFileHandler, self).doRollover()
@@ -57,7 +54,7 @@ class CompressedSizedTimedRotatingFileHandler(handlers.TimedRotatingFileHandler)
         dfn_zipped = '{}.zip'.format(dfn)
         if os.path.exists(dfn_zipped):
             os.remove(dfn_zipped)
-        with zipfile.ZipFile(dfn_zipped, 'w') as f:
+        with zipfile.ZipFile(dfn_zipped, 'w', self.zip_mode) as f:
             f.write(dfn)
             print('zip ' + dfn)
         os.remove(dfn)
