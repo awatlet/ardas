@@ -13,7 +13,7 @@ from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGI
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 
-version = 'v1.1.2.42'
+version = 'v1.1.3.0'
 
 # setup loggers
 # Message logging setup
@@ -174,101 +174,119 @@ def listen_slave():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, downloading, slave_io, data_queue, n_channels, slave_queue, master_queue, raw_data, \
-        influxdb_logging, master_online, pause, msg_logger, data_logger
+    global stop, downloading, slave_io, slave_queue, msg_logger
 
-    sensors = SENSORS
     # slave_io.reset_input_buffer()
     # slave_io.reset_output_buffer()
     msg_logger.debug('Initiating listen_slave thread...')
+    byte = b''
+    msg = b''
+    while byte != b'$':
+        byte = slave_io.read(1)
     while not stop:
         # Read incoming data from slave (ArDAS)
         try:
-            byte = b''
-            msg = b''
             # msg_logger.debug('listen_slave: reading serial port')
-            while byte != b'\r' and byte != b'$':
-                byte = slave_io.read(1)
-                msg += byte
+            while True:
+                msg = msg + byte + slave_io.read(slave_io.in_waiting)
                 # msg_logger.debug(msg.decode('utf-8', 'replace'))
-            # msg_logger.debug('listen_slave: message: %s' %msg.decode('ascii', errors='ignore'))
-            if byte == b'$':
-                record = byte
-                record += slave_io.read(32)
-                crc = slave_io.read(4)
-                record_crc = int.from_bytes(crc, 'big')
-                msg_crc = crc32(record)
-                msg_logger.debug('record : %s' % str(record))
-                msg_logger.debug('record_crc : %d' % record_crc)
-                msg_logger.debug('msg_crc : %d' % msg_crc)
-                if msg_crc == record_crc:
-                    crc_check = True
-                else:
-                    crc_check = False
-                if crc_check:
-                    instr = []
-                    freq = []
-                    station = int.from_bytes(record[1:3], 'big')
-                    integration_period = int.from_bytes(record[3:5], 'big')
-                    record_date = datetime.datetime.utcfromtimestamp(int.from_bytes(record[5:9], 'big'))
-                    # record_date = record_date.replace(tzinfo=datetime.timezone.utc)
-                    for i in range(n_channels):
-                        instr.append(int.from_bytes(record[9 + 2 * i:11 + 2 * i], 'big'))
-                        freq.append(unpack_from('>f', record[17 + 4 * i:21 + 4 * i])[0])
-                    decoded_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S') \
-                                     + ' %04d' % integration_period
-                    if raw_data:
-                        decoded_record += ' R'
-                    else:
-                        decoded_record += ' C'
-                        val = [0.] * n_channels
-                    for i in range(n_channels):
-                        val[i] = sensors[i].output(freq[i])
-                        if raw_data:
-                            decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
-                        else:
-                            decoded_record += ' %04d %11.4f' % (instr[i], val[i])
-                    decoded_record += '\n'
-                    msg_logger.debug('Master connected: %s' % master_online)
-                    if not raw_data:
-                        cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
-                        for i in range(n_channels):
-                            sens_out = '| %04d: ' % instr[i]
-                            sens_out += sensors[i].output_repr(freq[i])
-                            sens_out += ' '
-                            cal_record += sens_out
-                        cal_record += '|'
-                        if not pause:
-                            data_logger.info(cal_record)
-                        cal_record += '\n'
-                        if master_online:
-                            slave_queue.put(cal_record.encode('utf-8'))
-                    if influxdb_logging and not pause:
-                        data = []
-                        for i in range(n_channels):
-                            if sensors[i].log:
-                                data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' % instr[i]},
-                                             'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
-                                             'fields': {'value': val[i]}})
-                        msg_logger.debug('Writing to InfluxDB : %s' % str(data))
-                        client.write_points(data)
-                else:
-                    msg_logger.warning('*** Bad crc : corrupted data is not stored !')
+                record_start = msg.find(b'$')
+                # msg_logger.debug('record start: %d' % record_start)
+                msg_logger.debug('listen_slave: full message: %s' % msg.decode('ascii', errors='ignore'))
+                while record_start >= 0 and len(msg) >= record_start+37:
+                    record = msg[record_start:record_start+37]
+                    process_record(record)
+                    msg = msg[0:msg.find(b'$')] + msg[msg.find(b'$')+37:]
+                    record_start = msg.find(b'$')
+                msg_logger.debug('listen_slave: message no rec: %s' % msg.decode('ascii', errors='ignore'))
+                if not record_start >= 0:
+                    msg_end = msg.find(b'\r')
+                    while msg_end >= 0:
+                        if msg_end > 0:
 
-            else:
-                if len(msg) > 0:
-                    try:
-                        msg_logger.debug('Slave says : ' + msg.decode('ascii'))
-                    except:
-                        msg_logger.warning('*** listen_slave thread - Unable to decode slave message...')
-                    if not downloading:
-                        slave_queue.put(msg)
-            sleep(0.2)
+                            try:
+                                msg_logger.debug('Slave says : ' + msg[0:msg_end].decode('ascii', 'replace'))
+                            except:
+                                msg_logger.warning('*** listen_slave thread - Unable to decode slave message...')
+                            if not downloading:
+                                slave_queue.put(msg[0:msg_end])
+                        msg = msg[msg_end+1:]
+                        msg_end = msg.find(b'\r')
+                    msg_logger.debug('listen_slave: message no rec no msg: %s' % msg.decode('ascii', errors='ignore'))
+                byte = slave_io.read(1)
+                sleep(0.95)
         except queue.Full:
             msg_logger.warning('*** Data or slave queue is full!')
         except serial.SerialTimeoutException:
             pass
     msg_logger.debug('Closing listen_slave thread...')
+
+
+def process_record(record):
+    global n_channels, slave_queue, raw_data, influxdb_logging, master_online, pause, msg_logger, data_logger
+
+    sensors = SENSORS
+
+    crc = record[33:]
+    record = record[:33]
+    record_crc = int.from_bytes(crc, 'big')
+    msg_crc = crc32(record)
+    msg_logger.debug('record : %s' % str(record))
+    msg_logger.debug('record_crc : %d' % record_crc)
+    msg_logger.debug('msg_crc : %d' % msg_crc)
+    if msg_crc == record_crc:
+        crc_check = True
+    else:
+        crc_check = False
+    if crc_check:
+        instr = []
+        freq = []
+        station = int.from_bytes(record[1:3], 'big')
+        integration_period = int.from_bytes(record[3:5], 'big')
+        record_date = datetime.datetime.utcfromtimestamp(int.from_bytes(record[5:9], 'big'))
+        # record_date = record_date.replace(tzinfo=datetime.timezone.utc)
+        for i in range(n_channels):
+            instr.append(int.from_bytes(record[9 + 2 * i:11 + 2 * i], 'big'))
+            freq.append(unpack_from('>f', record[17 + 4 * i:21 + 4 * i])[0])
+        decoded_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S') \
+                         + ' %04d' % integration_period
+        if raw_data:
+            decoded_record += ' R'
+        else:
+            decoded_record += ' C'
+            val = [0.] * n_channels
+        for i in range(n_channels):
+            val[i] = sensors[i].output(freq[i])
+            if raw_data:
+                decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
+            else:
+                decoded_record += ' %04d %11.4f' % (instr[i], val[i])
+        decoded_record += '\n'
+        msg_logger.debug('Master connected: %s' % master_online)
+        if not raw_data:
+            cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
+            for i in range(n_channels):
+                sens_out = '| %04d: ' % instr[i]
+                sens_out += sensors[i].output_repr(freq[i])
+                sens_out += ' '
+                cal_record += sens_out
+            cal_record += '|'
+            if not pause:
+                data_logger.info(cal_record)
+            cal_record += '\n'
+            if master_online:
+                slave_queue.put(cal_record.encode('utf-8'))
+        if influxdb_logging and not pause:
+            data = []
+            for i in range(n_channels):
+                if sensors[i].log:
+                    data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' % instr[i]},
+                                 'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
+                                 'fields': {'value': val[i]}})
+            msg_logger.debug('Writing to InfluxDB : %s' % str(data))
+            client.write_points(data)
+    else:
+        msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 
 
 def talk_slave():
@@ -283,7 +301,7 @@ def talk_slave():
     msg_logger.debug('Initiating talk_slave thread...')
     while not stop:
         try:
-            msg = master_queue.get(timeout=0.25)
+            msg = master_queue.get()
             try:
                 msg_logger.debug('Saying to slave : ' + msg.decode('ascii')[:-1])
             except:
@@ -301,7 +319,6 @@ def talk_slave():
             msg_logger.error('*** Could not talk to slave...')
         except Exception as err:
             msg_logger.warning('*** talk_slave thread - error: %s' % err)
-
 
     msg_logger.debug('Closing talk_slave thread...')
 
@@ -388,6 +405,7 @@ def listen_master():
             except:
                 msg_logger.warning('Master connection lost...')
                 master_online = False
+        sleep(0.95)
     msg_logger.debug('Closing listen_master thread...')
 
 
@@ -405,7 +423,7 @@ def talk_master():
         if master_online:
             try:
                 if not downloading:
-                    msg = slave_queue.get(timeout=0.25)
+                    msg = slave_queue.get()
                     try:
                         msg_logger.debug('Saying to master :' + msg.decode('utf-8'))
                         master_connection.send(msg)
@@ -418,6 +436,7 @@ def talk_master():
             except:
                 msg_logger.warning('Master connection lost...')
                 master_online = False
+        sleep(0.95)
     msg_logger.debug('Closing talk_master thread...')
 
 
