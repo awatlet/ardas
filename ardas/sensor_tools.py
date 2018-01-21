@@ -107,8 +107,8 @@ class FMSensor(object):
         try:
             s = self.output_format + ' ' + self.units
             calibrated_output = s % self.output(value)
-        except:
-            calibrated_output = '*** error ***'
+        except Exception as e:
+            calibrated_output = '*** error : %s ***' % e
         assert isinstance(calibrated_output, str)
         return calibrated_output
 
@@ -116,7 +116,7 @@ class FMSensor(object):
         """Save the sensor as a serialized object to a file """
         f_name = cur_dir + '/sensor_' + self.sensor_id + '.ssr'
         if Path(f_name).exists():
-            logging.warning('Sensor file '+ f_name + ' already exists, unable to save sensor')
+            logging.warning('Sensor file ' + f_name + ' already exists, unable to save sensor')
         else:
             with open(f_name, 'wb') as sensor_file:
                 dump(self, sensor_file)

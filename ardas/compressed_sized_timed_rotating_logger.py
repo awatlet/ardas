@@ -56,5 +56,4 @@ class CompressedSizedTimedRotatingFileHandler(handlers.TimedRotatingFileHandler)
             os.remove(dfn_zipped)
         with zipfile.ZipFile(dfn_zipped, 'w', self.zip_mode) as f:
             f.write(dfn)
-            print('zip ' + dfn)
         os.remove(dfn)

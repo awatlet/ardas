@@ -12,8 +12,9 @@ import serial
 from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG, DATA_LOGGING_CONFIG
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
+from ardas.influxdb_events import influxdb_log_event
 
-version = 'v1.1.3.0'
+version = 'v1.1.3.1'
 
 # setup loggers
 # Message logging setup
@@ -83,7 +84,7 @@ raw_data = ARDAS_CONFIG['raw_data_on_disk']
 
 peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
 downloading = False
-pause = True  # used to suspend datalogging during some operations such as start_sequence
+pause = True  # used to suspend data logging during some operations such as start_sequence
 stop = False
 
 slave_queue = queue.Queue()  # what comes from ArDAS
@@ -94,7 +95,7 @@ status = True
 
 
 def init_logging():
-    global msg_logger, logging_level, data_log_filename, debug, client, slave_io
+    global msg_logger, logging_level, log_path, data_log_filename, debug, client, slave_io
     """ This is the init sequence for the logging system """
 
     init_logging_status = True
@@ -111,8 +112,8 @@ def init_logging():
         st = statvfs('.')
         available_space = st.f_bavail * st.f_frsize / 1024 / 1024
         msg_logger.info('Remaining disk space : %.1f MB' % available_space)
-    except:
-        pass
+    except Exception as e:
+        msg_logger.debug('Unable to get remaining disk space: %s' % e)
     msg_logger.info('Saving log to ' + log_file)
     msg_logger.info('ArDAS settings:')
     msg_logger.info('   station: %s' % ARDAS_CONFIG['station'])
@@ -146,24 +147,33 @@ def init_logging():
         msg_logger.info('Binding done!')
     except IOError as e:
         msg_logger.error('*** Cannot bind server socket binding on (%s, %d)!' + str(e))
-        init_logging_status &= False  # TODO : What if raspardas cannot connect to server
+        # init_logging_status &= False  # TODO : What if raspardas cannot connect to server
 
     msg_logger.info('Saving data to ' + data_log_filename)
-    msg_logger.info('Raw data: ' + str(raw_data))
+    msg_logger.info('Raw data in data log files and remote connections: ' + str(raw_data))
 
     if influxdb_logging:
         try:
             msg_logger.info('Logging to database: %s' % DATABASE['dbname'])
             client = InfluxDBClient(DATABASE['host'], DATABASE['port'], DATABASE['user'], DATABASE['password'],
                                     DATABASE['dbname'])
-        except:
-            msg_logger.error('*** Unable to log to database %s' % DATABASE['dbname'])
+            title = 'rasparadas (re)started'
+            try:
+                with open(path.join(log_path, 'restart_msg.txt'), 'rt') as f:
+                    l = f.readlines()
+                text = ''.join(l)[:-1]
+                with open(path.join(log_path, 'restart_msg.txt'), 'wt') as f:
+                    f.truncate()
+            except Exception as e:
+                msg_logger.error('Unable to read restart_msg.txt: %s' % e)
+            influxdb_log_event(influxdb_client=client, tags='start', text=text, title=title, msg_logger=msg_logger)
+        except Exception as e:
+            msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
 
     if raw_data:
-        s = 'Data is not calibrated'
-        if influxdb_logging:
-            s += ' - It will not be logged in the database.'
+        s = 'Raw data (not calibrated) will be stored in data logs...'
         msg_logger.warning(s)
+    msg_logger.info('init_logging_status: %s' % init_logging_status)
     return init_logging_status
 
 
@@ -187,7 +197,7 @@ def listen_slave():
         # Read incoming data from slave (ArDAS)
         try:
             # msg_logger.debug('listen_slave: reading serial port')
-            while True:
+            while not stop:
                 msg = msg + byte + slave_io.read(slave_io.in_waiting)
                 # msg_logger.debug(msg.decode('utf-8', 'replace'))
                 record_start = msg.find(b'$')
@@ -203,11 +213,10 @@ def listen_slave():
                     msg_end = msg.find(b'\r')
                     while msg_end >= 0:
                         if msg_end > 0:
-
                             try:
                                 msg_logger.debug('Slave says : ' + msg[0:msg_end].decode('ascii', 'replace'))
-                            except:
-                                msg_logger.warning('*** listen_slave thread - Unable to decode slave message...')
+                            except Exception as e:
+                                msg_logger.warning('*** listen_slave thread - Unable to decode slave message: %s' % e)
                             if not downloading:
                                 slave_queue.put(msg[0:msg_end])
                         msg = msg[msg_end+1:]
@@ -276,6 +285,8 @@ def process_record(record):
             cal_record += '\n'
             if master_online:
                 slave_queue.put(cal_record.encode('utf-8'))
+        elif master_online:
+                slave_queue.put(decoded_record.encode('utf-8'))
         if influxdb_logging and not pause:
             data = []
             for i in range(n_channels):
@@ -304,8 +315,8 @@ def talk_slave():
             msg = master_queue.get()
             try:
                 msg_logger.debug('Saying to slave : ' + msg.decode('ascii')[:-1])
-            except:
-                msg_logger.warning('*** talk_slave thread - Unable to decode master message...')
+            except Exception as e:
+                msg_logger.warning('*** talk_slave thread - Unable to decode master message: %s' % e)
             # msg_logger.debug('In waiting: ' + str(slave_io.in_waiting))
             # msg_logger.debug('Out waiting: ' + str(slave_io.out_waiting))
             msg_logger.debug('writing to slave...')
@@ -339,9 +350,13 @@ def connect_master():
                 msg_logger.info('Waiting for master...')
                 master_connection, addr = master_socket.accept()
                 msg_logger.info('Master connected, addr: ' + str(addr))
+                title = 'Connection by user'
+                text = 'addr: ' + str(addr)
+                influxdb_log_event(influxdb_client=client, tags='connection', text=text, title=title,
+                                   msg_logger=msg_logger)
                 master_online = True
-        except:
-            msg_logger.error('*** Master connection error!')
+        except Exception as e:
+            msg_logger.error('*** Master connection error: %s' % e)
 
     if master_online:
         msg = b'\n*** Ending connection ***\n\n'
@@ -357,7 +372,7 @@ def listen_master():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, master_connection, master_queue, master_online, raw_data, pause, msg_logger
+    global stop, master_connection, master_queue, master_online, raw_data, pause, msg_logger, client
 
     msg_logger.debug('Initiating listen_master thread...')
     while not stop:
@@ -370,11 +385,11 @@ def listen_master():
                     msg += byte
                 if msg[0:1] == b'\n':
                     msg = msg[1:]
-                if len(msg) > 0:
+                if len(msg) > 3:
                     try:
-                        msg_logger.debug('Master says : ' + msg.decode('ascii'))
-                    except:
-                        msg_logger.warning('*** listen_master thread - Unable to decode master message...')
+                        msg_logger.debug('Master says: ' + msg.decode('ascii'))
+                    except Exception as e:
+                        msg_logger.warning('*** listen_master thread - Unable to decode master message: %s ...' % e)
                     if msg[:-1] == b'#XB':
                         msg_logger.info('Full download is not available')
                     elif msg[:-1] == b'#XP':
@@ -383,11 +398,25 @@ def listen_master():
                         msg_logger.info('Aborting download request')
                     elif msg[:-1] == b'#ZF':
                         msg_logger.info('Reset request')
-                    elif msg[:-1] == b'#PA':
+                    elif msg[:3] == b'#PA':
                         if pause:
-                            msg_logger.info('Resume data logging')
+                            title = 'Resumed by user'
+                            if len(msg) > 4:
+                                text = msg[4:-1].decode('utf-8')
+                            else:
+                                text = 'No message'
+                            msg_logger.info(text)
+                            influxdb_log_event(influxdb_client=client, tags='resume', text=text, title=title,
+                                               msg_logger=msg_logger)
                         else:
-                            msg_logger.info('Pause data logging')
+                            text = 'Pause'
+                            if len(msg) > 4:
+                                text = msg[4:-1].decode('utf-8')
+                            else:
+                                text = 'No message'
+                            msg_logger.info(text)
+                            influxdb_log_event(influxdb_client=client, tags='pause', text=text, title=title,
+                                               msg_logger=msg_logger)
                         pause = not pause
                     elif msg[:-1] == b'#RC':
                         raw_data = not raw_data
@@ -395,15 +424,46 @@ def listen_master():
                             msg_logger.info('Switching to raw data.')
                         else:
                             msg_logger.info('Switching to calibrated data.')
-                    elif msg[:-1] == b'#KL':
-                        msg_logger.info('Stop request')
+                    elif msg[:3] == b'#KL':
+                        title = 'Stopped by user'
+                        if len(msg) > 4:
+                            text = msg[4:-1].decode('utf-8')
+                        else:
+                            text = 'No message'
+                        msg_logger.info(text)
+                        influxdb_log_event(influxdb_client=client, tags='stop', text=text, title=title,
+                                           msg_logger=msg_logger)
                         stop = True
+                    elif msg[:3] == b'#MS':
+                        title = 'Message from user'
+                        if len(msg) > 4:
+                            text = msg[4:-1].decode('utf-8')
+                        else:
+                            text = 'No message'
+                        msg_logger.info(text)
+                        influxdb_log_event(influxdb_client=client, tags='message', text=text, title=title,
+                                           msg_logger=msg_logger)
+                    elif msg[:3] == b'#QT':
+                        title = 'Connection ended by user'
+                        if len(msg) > 4:
+                            text = msg[4:-1].decode('utf-8')
+                        else:
+                            text = 'No message'
+                        msg_logger.info(text)
+                        influxdb_log_event(influxdb_client=client, tags='end connection', text=text, title=title,
+                                           msg_logger=msg_logger)
+                        master_online = False
                     else:
                         master_queue.put(msg)
+                else:
+                    try:
+                        msg_logger.warning('Incomplete message - Master says: ' + msg.decode('ascii'))
+                    except Exception as e:
+                        msg_logger.warning('*** listen_master thread - Unable to decode master message: %s ...' % e)
             except queue.Full:
                 msg_logger.error('*** Master queue is full!')
-            except:
-                msg_logger.warning('Master connection lost...')
+            except Exception as e:
+                msg_logger.warning('Master connection lost: %s' % e)
                 master_online = False
         sleep(0.95)
     msg_logger.debug('Closing listen_master thread...')
@@ -427,14 +487,14 @@ def talk_master():
                     try:
                         msg_logger.debug('Saying to master :' + msg.decode('utf-8'))
                         master_connection.send(msg)
-                    except:
-                        msg_logger.warning('*** talk_master thread - Unable to decode slave message...')
+                    except Exception as e:
+                        msg_logger.warning('*** talk_master thread - Unable to decode slave message: %s' % e)
                         master_connection.send(msg)
 
             except queue.Empty:
                 pass
-            except:
-                msg_logger.warning('Master connection lost...')
+            except Exception as e:
+                msg_logger.warning('Master connection lost: %s' % e)
                 master_online = False
         sleep(0.95)
     msg_logger.debug('Closing talk_master thread...')
@@ -452,10 +512,9 @@ def start_sequence():
             msg = b'-999\r\n'  # FIX: Should be \r
             master_queue.put(msg)
             msg_logger.debug('start_sequence : Calling all ArDAS')
-            msg = b''
             k = 10
             sleep(0.75)
-            while k > 0 and not reply:  # FIX: this does not seem to work properly each time (it loops endlessly)
+            while k > 0 and not reply:
                 try:
                     msg = slave_queue.get(timeout=0.25)
                     if msg != b'':
@@ -477,6 +536,7 @@ def start_sequence():
         msg_logger.debug('start_sequence : Sending wake-up command')
         msg = b''
         k = 10
+        sleep(0.75)
         while k > 0 and not reply:
             try:
                 msg = slave_queue.get(timeout=0.25)
@@ -507,12 +567,12 @@ def start_sequence():
             msg += b' '
         msg += b'31\r'
         master_queue.put(msg)
-        sleep(1)
+        sleep(0.75)
         msg_logger.debug('start_sequence : Sending reconfig command')
         try:
             msg = slave_queue.get(timeout=0.25)
-        except:
-            pass
+        except Exception as e:
+            msg_logger.debug('Could not read slave_queue: %s' % e)
         if msg[0:4] == b'!ZR ':
             msg_logger.debug('start_sequence : Reply received!')
             reply = True
@@ -524,10 +584,11 @@ def start_sequence():
         msg = b'#E0\r'
         master_queue.put(msg)
         msg_logger.debug('start_sequence : Sending no echo command')
+        sleep(0.75)
         try:
             msg = slave_queue.get(timeout=0.25)
-        except:
-            pass
+        except Exception as e:
+            msg_logger.debug('Could not read slave_queue: %s' % e)
         if msg[0:4] == b'!E0 ':
             msg_logger.debug('start_sequence : Reply received!')
             reply = True
@@ -540,23 +601,24 @@ def start_sequence():
         try:
             msg_logger.debug('start_sequence : Getting time from NTP...')
             now = datetime.datetime.utcfromtimestamp(c.request('europe.pool.ntp.org').tx_time)
-            msg = '#SD %04d %02d %02d %02d %02d %02d\r' % (
-            now.year, now.month, now.day, now.hour, now.minute, now.second)
+            msg = '#SD %04d %02d %02d %02d %02d %02d\r' % (now.year, now.month, now.day,
+                                                           now.hour, now.minute, now.second)
             master_queue.put(bytes(msg.encode('ascii')))
             msg_logger.debug('start_sequence : Setting ArDAS date from NTP server: %04d %02d %02d %02d %02d %02d' %
                              (now.year, now.month, now.day, now.hour, now.minute, now.second))
+            sleep(0.75)
             try:
                 msg = slave_queue.get(timeout=0.25)
-            except:
-                pass
+            except Exception as e:
+                msg_logger.debug('Could not read slave_queue: %s' % e)
             if msg[0:4] == b'!SD ':
                 msg_logger.info('start_sequence : ArDAS date set from NTP server: %04d %02d %02d %02d %02d %02d' %
                                 (now.year, now.month, now.day, now.hour, now.minute, now.second))
                 reply = True
             else:
                 msg_logger.debug('start_sequence : No proper reply received yet...')
-        except:
-            msg_logger.debug('start_sequence : Unable to get date and time from to NTP !')
+        except Exception as e:
+            msg_logger.debug('start_sequence : Unable to get date and time from to NTP: %s' % e)
     msg_logger.debug('Start sequence finished...')
     msg_logger.debug('__________________________')
 
@@ -569,9 +631,9 @@ if __name__ == '__main__':
             station = ARDAS_CONFIG['station']
             net_id = ARDAS_CONFIG['net_id']
             integration_period = ARDAS_CONFIG['integration_period']
-
             pause = True
-            # master_queue.put(cmd)
+            influxdb_log_event(influxdb_client=client, tags='pause', text='reconfiguration started',
+                               title='Pause logging', msg_logger=msg_logger)
             slave_talker = Thread(target=talk_slave)
             slave_talker.setDaemon(True)
             slave_talker.start()
@@ -593,11 +655,13 @@ if __name__ == '__main__':
             master_listener.setDaemon(True)
             master_listener.start()
             pause = False
+            influxdb_log_event(influxdb_client=client, tags='resume', text='reconfiguration ended',
+                               title='Resume logging', msg_logger=msg_logger)
 
             msg_logger.info('*** Starting logging... ***')
 
             while not stop:
-                sleep(0.25)
+                sleep(1)
 
             msg_logger.info('Exiting - Waiting for threads to end...')
             slave_listener.join()
@@ -610,8 +674,8 @@ if __name__ == '__main__':
             msg_logger.info('Exiting - Closing file and communication ports...')
             try:
                 slave_io
-            except:
-                pass
+            except Exception as e:
+                msg_logger.debug('Unable close slave_io: %s' % e)
             else:
                 slave_io.close()
             msg_logger.info('Exiting raspardas')
@@ -623,5 +687,5 @@ if __name__ == '__main__':
         msg_logger.info('Exiting raspardas')
         try:
             slave_io.close()
-        except:
-            pass
+        except Exception as e:
+            msg_logger.debug('Unable close slave_io: %s' % e)

@@ -52,7 +52,8 @@ In this section the settings of the ArDAS are given.
         'station': '0001',
         'net_id': '001',
         'integration_period': '0001',
-        'tty': '/dev/ttyACM0'
+        'tty': '/dev/ttyACM0',
+        'raw_data_on_disk': False
     }
 
 ``MASTER``
