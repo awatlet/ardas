@@ -3,7 +3,12 @@ Describe your sensors
 
 Sensors are described in special files named `sensorXXXX.ssr` where XXXX stands for the sensor that contain `raspardas.py`.
 
-``CREATE THE .SSR FILEs``
+``CALIBRATE THE SENSORS``
+-------------------------
+Uncalibrated FM sensors produce readings that are a frequency. You may want to calibrate your FM sensors to produce
+meaningful readings in units such as °C or µm and not just Hz.
+
+``CREATE THE .SSR FILES``
 -------------------------
 In the example below, four sensors are created and saved to `.ssr` files.
 ::
