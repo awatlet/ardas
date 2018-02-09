@@ -518,6 +518,7 @@ def start_sequence():
             while k > 0 and not reply:
                 try:
                     msg = slave_queue.get(timeout=0.25)
+                    msg_logger.debug('received reply: %s' %msg.decode('ascii', errors='ignore'))
                     if msg != b'':
                         if b'Hey!' in msg:
                             msg_logger.debug('start_sequence : Reply received!')
@@ -532,7 +533,7 @@ def start_sequence():
                     k -= 1
     reply = False
     while not reply:
-        msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r\n'  # FIX: Should be /r
+        msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r\n'  # FIX: Should be \r
         master_queue.put(msg)
         msg_logger.debug('start_sequence : Sending wake-up command')
         msg = b''
