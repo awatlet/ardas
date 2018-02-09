@@ -10,6 +10,7 @@ Welcome to ardas documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   getting_started
    parse_and_push_to_db
    build_arduino_sketch
    commands
