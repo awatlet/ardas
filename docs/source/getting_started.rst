@@ -13,3 +13,4 @@ Create your sensors
 
 See the `sensors <sensors.html>`_ for more information.
 
+Don't forget: for using ardas tty, the user must be in **dialout** group !
