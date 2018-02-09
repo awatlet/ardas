@@ -4,7 +4,7 @@ Describe your sensors
 Sensors are described in special files named `sensorXXXX.ssr` where XXXX stands for the sensor that contain `raspardas.py`.
 
 ``CREATE THE .SSR FILEs``
-------------------------
+-------------------------
 In the example below, four sensors are created and saved to `.ssr` files.
 ::
 
