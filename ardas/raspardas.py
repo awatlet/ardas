@@ -14,7 +14,7 @@ from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 from ardas.influxdb_events import influxdb_log_event
 
-version = 'v1.1.3.1'
+version = 'v1.1.3.2'
 
 # setup loggers
 # Message logging setup
@@ -291,7 +291,8 @@ def process_record(record):
             data = []
             for i in range(n_channels):
                 if sensors[i].log:
-                    data.append({'measurement': 'temperatures', 'tags': {'sensor': '%04d' % instr[i]},
+                    data.append({'measurement': DATABASE['series'],
+                                 'tags': {'sensor': '%s-%04d' % (ARDAS_CONFIG['net_id'], instr[i])},
                                  'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                  'fields': {'value': val[i]}})
             msg_logger.debug('Writing to InfluxDB : %s' % str(data))

@@ -37,7 +37,8 @@ This section gives the settings of the InfluxDB where the output of the sensors 
         'port': 8086,
         'user': '*user_name*',
         'password': '*password*',
-        'dbname': '*database_name*'
+        'dbname': '*database_name*',
+        'series': '*series_name*'
     }
 
 ``ARDAS``
