@@ -1,8 +1,6 @@
-Parse and push to db
-====================
+Automatic start on boot
+=======================
 
-Automation
-----------
 
 Add a cron job
 

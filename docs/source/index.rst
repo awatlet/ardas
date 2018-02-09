@@ -11,11 +11,12 @@ Welcome to ardas documentation!
    :caption: Contents:
 
    getting_started
-   parse_and_push_to_db
-   build_arduino_sketch
-   commands
    sensors
    settings
+   automatic_start_on_boot
+   build_arduino_sketch
+   commands
+
 
 Indices and tables
 ==================
