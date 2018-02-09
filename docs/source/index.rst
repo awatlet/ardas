@@ -14,6 +14,7 @@ Welcome to ardas documentation!
    parse_and_push_to_db
    build_arduino_sketch
    commands
+   sensors
    settings
 
 Indices and tables
