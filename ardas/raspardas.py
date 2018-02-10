@@ -14,7 +14,7 @@ from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 from ardas.influxdb_events import influxdb_log_event
 
-version = 'v1.1.3.2'
+version = 'v1.2.1.0'
 
 # setup loggers
 # Message logging setup
@@ -82,8 +82,6 @@ n_channels = len(SENSORS)
 chunk_size = 4096
 raw_data = ARDAS_CONFIG['raw_data_on_disk']
 
-peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
-downloading = False
 pause = True  # used to suspend data logging during some operations such as start_sequence
 stop = False
 
@@ -184,8 +182,7 @@ def listen_slave():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, downloading, slave_io, slave_queue, msg_logger
-
+    global stop, slave_io, slave_queue, msg_logger, master_online
     # slave_io.reset_input_buffer()
     # slave_io.reset_output_buffer()
     msg_logger.debug('Initiating listen_slave thread...')
@@ -217,7 +214,7 @@ def listen_slave():
                                 msg_logger.debug('Slave says : ' + msg[0:msg_end].decode('ascii', 'replace'))
                             except Exception as e:
                                 msg_logger.warning('*** listen_slave thread - Unable to decode slave message: %s' % e)
-                            if not downloading:
+                            if master_online:
                                 slave_queue.put(msg[0:msg_end])
                         msg = msg[msg_end+1:]
                         msg_end = msg.find(b'\r')
@@ -355,6 +352,7 @@ def connect_master():
                 text = 'addr: ' + str(addr)
                 influxdb_log_event(influxdb_client=client, tags='connection', text=text, title=title,
                                    msg_logger=msg_logger)
+
                 master_online = True
         except Exception as e:
             msg_logger.error('*** Master connection error: %s' % e)
@@ -477,21 +475,19 @@ def talk_master():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, downloading, master_connection, slave_queue, master_online, msg_logger
+    global stop, master_connection, slave_queue, master_online, msg_logger
 
     msg_logger.debug('Initiating talk_master thread...')
     while not stop:
         if master_online:
             try:
-                if not downloading:
-                    msg = slave_queue.get()
-                    try:
-                        msg_logger.debug('Saying to master :' + msg.decode('utf-8'))
-                        master_connection.send(msg)
-                    except Exception as e:
-                        msg_logger.warning('*** talk_master thread - Unable to decode slave message: %s' % e)
-                        master_connection.send(msg)
-
+                msg = slave_queue.get()
+                try:
+                    msg_logger.debug('Saying to master :' + msg.decode('utf-8'))
+                    master_connection.send(msg)
+                except Exception as e:
+                    msg_logger.warning('*** talk_master thread - Unable to decode slave message: %s' % e)
+                    master_connection.send(msg)
             except queue.Empty:
                 pass
             except Exception as e:
