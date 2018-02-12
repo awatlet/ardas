@@ -76,7 +76,6 @@ master_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 master_connection = None
 master_online = False
 
-
 # Connection and communication with slave
 slave_io = None
 n_channels = len(SENSORS)
@@ -617,8 +616,8 @@ def start_sequence():
                 msg_logger.debug('start_sequence : No proper reply received yet...')
         except Exception as e:
             msg_logger.debug('start_sequence : Unable to get date and time from to NTP: %s' % e)
-    msg_logger.debug('Start sequence finished...')
-    msg_logger.debug('__________________________')
+    msg_logger.debug('Start sequence completed...')
+    msg_logger.debug('___________________________')
     starting = False
 
 
@@ -654,11 +653,10 @@ if __name__ == '__main__':
             master_listener = Thread(target=listen_master)
             master_listener.setDaemon(True)
             master_listener.start()
-            pause = False
-            influxdb_log_event(influxdb_client=client, title='Pause logging',
+            influxdb_log_event(influxdb_client=client, title='Resume logging',
                                default_tags=ARDAS_CONFIG['net_id'] + ',' + 'resume',
                                event_args='reconfiguration complete', msg_logger=msg_logger)
-
+            pause = False
             msg_logger.info('*** Starting logging... ***')
 
             while not stop:
