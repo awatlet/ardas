@@ -76,6 +76,7 @@ master_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 master_connection = None
 master_online = False
 
+
 # Connection and communication with slave
 slave_io = None
 n_channels = len(SENSORS)
@@ -83,6 +84,7 @@ chunk_size = 4096
 raw_data = ARDAS_CONFIG['raw_data_on_disk']
 
 pause = True  # used to suspend data logging during some operations such as start_sequence
+starting = True
 stop = False
 
 slave_queue = queue.Queue()  # what comes from ArDAS
@@ -184,7 +186,7 @@ def listen_slave():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, slave_io, slave_queue, msg_logger, master_online
+    global stop, slave_io, slave_queue, msg_logger, master_online, starting
     # slave_io.reset_input_buffer()
     # slave_io.reset_output_buffer()
     msg_logger.debug('Initiating listen_slave thread...')
@@ -216,7 +218,7 @@ def listen_slave():
                                 msg_logger.debug('Slave says : ' + msg[0:msg_end].decode('ascii', 'replace'))
                             except Exception as e:
                                 msg_logger.warning('*** listen_slave thread - Unable to decode slave message: %s' % e)
-                            if master_online:
+                            if master_online or starting:
                                 slave_queue.put(msg[0:msg_end])
                         msg = msg[msg_end+1:]
                         msg_end = msg.find(b'\r')
@@ -224,7 +226,7 @@ def listen_slave():
                 byte = slave_io.read(1)
                 sleep(0.95)
         except queue.Full:
-            msg_logger.warning('*** Data or slave queue is full!')
+            msg_logger.warning('*** Slave queue is full!')
         except serial.SerialTimeoutException:
             pass
     msg_logger.debug('Closing listen_slave thread...')
@@ -496,7 +498,7 @@ def talk_master():
 
 
 def start_sequence():
-    global master_queue, slave_queue, n_channels, msg_logger
+    global master_queue, slave_queue, n_channels, msg_logger, starting
 
     msg_logger.debug('Initiating start sequence...')
     msg_logger.debug('____________________________')
@@ -617,6 +619,7 @@ def start_sequence():
             msg_logger.debug('start_sequence : Unable to get date and time from to NTP: %s' % e)
     msg_logger.debug('Start sequence finished...')
     msg_logger.debug('__________________________')
+    starting = False
 
 
 if __name__ == '__main__':
