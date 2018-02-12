@@ -626,8 +626,9 @@ if __name__ == '__main__':
             net_id = ARDAS_CONFIG['net_id']
             integration_period = ARDAS_CONFIG['integration_period']
             pause = True
-            influxdb_log_event(influxdb_client=client, tags='pause', event_args='reconfiguration started',
-                               title='Pause logging', msg_logger=msg_logger)
+            influxdb_log_event(influxdb_client=client, title='Pause logging',
+                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'pause',
+                               event_args='reconfiguration started', msg_logger=msg_logger)
             slave_talker = Thread(target=talk_slave)
             slave_talker.setDaemon(True)
             slave_talker.start()
@@ -649,8 +650,9 @@ if __name__ == '__main__':
             master_listener.setDaemon(True)
             master_listener.start()
             pause = False
-            influxdb_log_event(influxdb_client=client, tags='resume', event_args='reconfiguration ended',
-                               title='Resume logging', msg_logger=msg_logger)
+            influxdb_log_event(influxdb_client=client, title='Pause logging',
+                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'resume',
+                               event_args='reconfiguration complete', msg_logger=msg_logger)
 
             msg_logger.info('*** Starting logging... ***')
 
