@@ -164,7 +164,9 @@ def init_logging():
                     f.truncate()
             except Exception as e:
                 msg_logger.error('Unable to read restart_msg.txt: %s' % e)
-            influxdb_log_event(influxdb_client=client, tags='start', event_args=text, title=title, msg_logger=msg_logger)
+            influxdb_log_event(influxdb_client=client, title=title,
+                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'start',
+                               event_args=text, msg_logger=msg_logger)
         except Exception as e:
             msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
 
