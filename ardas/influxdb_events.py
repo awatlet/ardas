@@ -23,8 +23,9 @@ def influxdb_log_event(influxdb_client, title, default_tags, event_args,  msg_lo
              'fields': {'value': 1, 'tags': decoded_event_args['tags'], 'text': decoded_event_args['comment'],
                         'title': title}
               }]
-    msg_logger.debug('Writing event "%s: %s" with tag(s) "%s" to %s @%s' % (title, event_args, tags, DATABASE['dbname'],
-                                                                        decoded_event_args['event_time']))
+    msg_logger.debug('Writing event "%s: %s" with tag(s) "%s" to %s @%s'
+                     % (title, decoded_event_args['comment'], decoded_event_args['tags'], DATABASE['dbname'],
+                        decoded_event_args['event_time']))
     event_written = False
     while not event_written:
         try:
