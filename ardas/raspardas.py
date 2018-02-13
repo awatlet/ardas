@@ -13,8 +13,9 @@ from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGI
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 from ardas.influxdb_events import influxdb_log_event
+from ardas.get_git_version import get_version
 
-version = 'v1.2.1.0'
+version = get_version()
 
 # setup loggers
 # Message logging setup
