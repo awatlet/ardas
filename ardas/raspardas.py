@@ -13,8 +13,9 @@ from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGI
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 from ardas.influxdb_events import influxdb_log_event
+from ardas.get_git_version import get_version
 
-version = 'v1.1.3.2'
+version = get_version()
 
 # setup loggers
 # Message logging setup
@@ -82,9 +83,8 @@ n_channels = len(SENSORS)
 chunk_size = 4096
 raw_data = ARDAS_CONFIG['raw_data_on_disk']
 
-peer_download = False  # TODO: find a way to set peer_download to True if another ardas is downloading at startup
-downloading = False
 pause = True  # used to suspend data logging during some operations such as start_sequence
+starting = True
 stop = False
 
 slave_queue = queue.Queue()  # what comes from ArDAS
@@ -166,7 +166,9 @@ def init_logging():
                     f.truncate()
             except Exception as e:
                 msg_logger.error('Unable to read restart_msg.txt: %s' % e)
-            influxdb_log_event(influxdb_client=client, tags='start', text=text, title=title, msg_logger=msg_logger)
+            influxdb_log_event(influxdb_client=client, title=title,
+                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'start',
+                               event_args=text, msg_logger=msg_logger)
         except Exception as e:
             msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
 
@@ -184,8 +186,7 @@ def listen_slave():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, downloading, slave_io, slave_queue, msg_logger
-
+    global stop, slave_io, slave_queue, msg_logger, master_online, starting
     # slave_io.reset_input_buffer()
     # slave_io.reset_output_buffer()
     msg_logger.debug('Initiating listen_slave thread...')
@@ -217,7 +218,7 @@ def listen_slave():
                                 msg_logger.debug('Slave says : ' + msg[0:msg_end].decode('ascii', 'replace'))
                             except Exception as e:
                                 msg_logger.warning('*** listen_slave thread - Unable to decode slave message: %s' % e)
-                            if not downloading:
+                            if master_online or starting:
                                 slave_queue.put(msg[0:msg_end])
                         msg = msg[msg_end+1:]
                         msg_end = msg.find(b'\r')
@@ -225,7 +226,7 @@ def listen_slave():
                 byte = slave_io.read(1)
                 sleep(0.95)
         except queue.Full:
-            msg_logger.warning('*** Data or slave queue is full!')
+            msg_logger.warning('*** Slave queue is full!')
         except serial.SerialTimeoutException:
             pass
     msg_logger.debug('Closing listen_slave thread...')
@@ -352,9 +353,10 @@ def connect_master():
                 master_connection, addr = master_socket.accept()
                 msg_logger.info('Master connected, addr: ' + str(addr))
                 title = 'Connection by user'
-                text = 'addr: ' + str(addr)
-                influxdb_log_event(influxdb_client=client, tags='connection', text=text, title=title,
-                                   msg_logger=msg_logger)
+                event_args = 'addr: ' + str(addr)
+                influxdb_log_event(influxdb_client=client, title=title,
+                                   default_tags=ARDAS_CONFIG['net_id'] + ',' + 'connection',
+                                   event_args=event_args, msg_logger=msg_logger)
                 master_online = True
         except Exception as e:
             msg_logger.error('*** Master connection error: %s' % e)
@@ -391,6 +393,7 @@ def listen_master():
                         msg_logger.debug('Master says: ' + msg.decode('ascii'))
                     except Exception as e:
                         msg_logger.warning('*** listen_master thread - Unable to decode master message: %s ...' % e)
+                    event_args = ''
                     if msg[:-1] == b'#XB':
                         msg_logger.info('Full download is not available')
                     elif msg[:-1] == b'#XP':
@@ -403,21 +406,19 @@ def listen_master():
                         if pause:
                             title = 'Resumed by user'
                             if len(msg) > 4:
-                                text = msg[4:-1].decode('utf-8')
-                            else:
-                                text = 'No message'
-                            msg_logger.info(text)
-                            influxdb_log_event(influxdb_client=client, tags='resume', text=text, title=title,
-                                               msg_logger=msg_logger)
+                                event_args = msg[4:-1].decode('utf-8')
+                            msg_logger.info('%s: %s' %(title, event_args))
+                            influxdb_log_event(influxdb_client=client, title=title,
+                                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'resume',
+                                               event_args=event_args, msg_logger=msg_logger)
                         else:
-                            text = 'Pause'
+                            title = 'Paused by user'
                             if len(msg) > 4:
-                                text = msg[4:-1].decode('utf-8')
-                            else:
-                                text = 'No message'
-                            msg_logger.info(text)
-                            influxdb_log_event(influxdb_client=client, tags='pause', text=text, title=title,
-                                               msg_logger=msg_logger)
+                                event_args = msg[4:-1].decode('utf-8')
+                            msg_logger.info('%s: %s' % (title, event_args))
+                            influxdb_log_event(influxdb_client=client, title=title,
+                                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'pause',
+                                               event_args=event_args, msg_logger=msg_logger)
                         pause = not pause
                     elif msg[:-1] == b'#RC':
                         raw_data = not raw_data
@@ -428,31 +429,28 @@ def listen_master():
                     elif msg[:3] == b'#KL':
                         title = 'Stopped by user'
                         if len(msg) > 4:
-                            text = msg[4:-1].decode('utf-8')
-                        else:
-                            text = 'No message'
-                        msg_logger.info(text)
-                        influxdb_log_event(influxdb_client=client, tags='stop', text=text, title=title,
-                                           msg_logger=msg_logger)
+                            event_args = msg[4:-1].decode('utf-8')
+                        msg_logger.info('%s: %s' % (title, event_args))
+                        influxdb_log_event(influxdb_client=client, title=title,
+                                           default_tags=ARDAS_CONFIG['net_id'] + ',' + 'stop',
+                                           event_args=event_args, msg_logger=msg_logger)
                         stop = True
                     elif msg[:3] == b'#MS':
                         title = 'Message from user'
                         if len(msg) > 4:
-                            text = msg[4:-1].decode('utf-8')
-                        else:
-                            text = 'No message'
-                        msg_logger.info(text)
-                        influxdb_log_event(influxdb_client=client, tags='message', text=text, title=title,
-                                           msg_logger=msg_logger)
+                            event_args = msg[4:-1].decode('utf-8')
+                        msg_logger.info('%s: %s' % (title, event_args))
+                        influxdb_log_event(influxdb_client=client, title=title,
+                                           default_tags=ARDAS_CONFIG['net_id'] + ',' + 'message',
+                                           event_args=event_args, msg_logger=msg_logger)
                     elif msg[:3] == b'#QT':
                         title = 'Connection ended by user'
                         if len(msg) > 4:
-                            text = msg[4:-1].decode('utf-8')
-                        else:
-                            text = 'No message'
-                        msg_logger.info(text)
-                        influxdb_log_event(influxdb_client=client, tags='end connection', text=text, title=title,
-                                           msg_logger=msg_logger)
+                            event_args = msg[4:-1].decode('utf-8')
+                        msg_logger.info('%s: %s' % (title, event_args))
+                        influxdb_log_event(influxdb_client=client, title=title,
+                                           default_tags=ARDAS_CONFIG['net_id'] + ',' + 'end connection',
+                                           event_args=event_args, msg_logger=msg_logger)
                         master_online = False
                     else:
                         master_queue.put(msg)
@@ -477,21 +475,19 @@ def talk_master():
     infinite loop, and only exit when
     the main thread ends.
     """
-    global stop, downloading, master_connection, slave_queue, master_online, msg_logger
+    global stop, master_connection, slave_queue, master_online, msg_logger
 
     msg_logger.debug('Initiating talk_master thread...')
     while not stop:
         if master_online:
             try:
-                if not downloading:
-                    msg = slave_queue.get()
-                    try:
-                        msg_logger.debug('Saying to master :' + msg.decode('utf-8'))
-                        master_connection.send(msg)
-                    except Exception as e:
-                        msg_logger.warning('*** talk_master thread - Unable to decode slave message: %s' % e)
-                        master_connection.send(msg)
-
+                msg = slave_queue.get()
+                try:
+                    msg_logger.debug('Saying to master :' + msg.decode('utf-8'))
+                    master_connection.send(msg)
+                except Exception as e:
+                    msg_logger.warning('*** talk_master thread - Unable to decode slave message: %s' % e)
+                    master_connection.send(msg)
             except queue.Empty:
                 pass
             except Exception as e:
@@ -502,7 +498,7 @@ def talk_master():
 
 
 def start_sequence():
-    global master_queue, slave_queue, n_channels, msg_logger
+    global master_queue, slave_queue, n_channels, msg_logger, starting
 
     msg_logger.debug('Initiating start sequence...')
     msg_logger.debug('____________________________')
@@ -621,8 +617,9 @@ def start_sequence():
                 msg_logger.debug('start_sequence : No proper reply received yet...')
         except Exception as e:
             msg_logger.debug('start_sequence : Unable to get date and time from to NTP: %s' % e)
-    msg_logger.debug('Start sequence finished...')
-    msg_logger.debug('__________________________')
+    msg_logger.debug('Start sequence completed...')
+    msg_logger.debug('___________________________')
+    starting = False
 
 
 if __name__ == '__main__':
@@ -634,8 +631,9 @@ if __name__ == '__main__':
             net_id = ARDAS_CONFIG['net_id']
             integration_period = ARDAS_CONFIG['integration_period']
             pause = True
-            influxdb_log_event(influxdb_client=client, tags='pause', text='reconfiguration started',
-                               title='Pause logging', msg_logger=msg_logger)
+            influxdb_log_event(influxdb_client=client, title='Pause logging',
+                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'pause',
+                               event_args='reconfiguration started', msg_logger=msg_logger)
             slave_talker = Thread(target=talk_slave)
             slave_talker.setDaemon(True)
             slave_talker.start()
@@ -656,10 +654,10 @@ if __name__ == '__main__':
             master_listener = Thread(target=listen_master)
             master_listener.setDaemon(True)
             master_listener.start()
+            influxdb_log_event(influxdb_client=client, title='Resume logging',
+                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'resume',
+                               event_args='reconfiguration complete', msg_logger=msg_logger)
             pause = False
-            influxdb_log_event(influxdb_client=client, tags='resume', text='reconfiguration ended',
-                               title='Resume logging', msg_logger=msg_logger)
-
             msg_logger.info('*** Starting logging... ***')
 
             while not stop:
