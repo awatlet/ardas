@@ -9,6 +9,9 @@ verify_ssl = true
 
 pyserial = "*"
 influxdb = "*"
+"w1thermsensor" = "*"
+ntplib = "*"
+numpy = "*"
 
 
 [dev-packages]
