@@ -22,7 +22,7 @@ version = get_version()
 log_path = path.join(path.dirname(__file__), 'logs')
 if not path.isdir(log_path):
     mkdir(log_path)
-log_file = path.join(log_path, LOGGING_CONFIG['file_name'])
+log_file = path.join(log_path, 'msg_log')
 msg_logger = logging.getLogger('msg_logger')
 
 # Data logging setup
@@ -30,7 +30,7 @@ base_path = path.dirname(__file__)
 data_path = path.join(base_path, 'data')
 if not path.isdir(data_path):
     mkdir(data_path)
-data_log_filename = path.join(data_path, DATA_LOGGING_CONFIG['file_name'])
+data_log_filename = path.join(data_path, 'data_log')
 data_logger = logging.getLogger('data_logger')
 
 # Debug and logging
