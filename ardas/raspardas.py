@@ -314,7 +314,7 @@ def talk_slave():
     msg_logger.debug('Initiating talk_slave thread...')
     while not stop:
         try:
-            msg = master_queue.get()
+            msg = master_queue.get(timeout=1)
             try:
                 msg_logger.debug('Saying to slave : ' + msg.decode('ascii')[:-1])
             except Exception as e:
@@ -364,7 +364,7 @@ def connect_master():
     if master_online:
         msg = b'\n*** Ending connection ***\n\n'
         master_connection.send(msg)
-    master_connection.close()
+        master_connection.close()
     msg_logger.debug('Closing connect_master thread...')
 
 
