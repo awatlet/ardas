@@ -5,3 +5,4 @@ ardas/data/*
 ardas/logs/*
 cronlog.log
 ardas/__pycache__/*
+docs/build/*
