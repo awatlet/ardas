@@ -1,0 +1,13 @@
+To setup the system
+
+1- Edit your settings
+    see docs
+
+2- Create your sensors files
+
+
+3- Create a crontab task (here assuming user pi):
+   PYTHONPATH=/home/pi/ardas
+
+   # m h  dom mon dow   command
+   @reboot /usr/bin/python3 /home/pi/ardas/ardas/raspardas.py > /home/pi/ardas/cronlog.log 2>&1
