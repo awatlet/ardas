@@ -1,8 +1,10 @@
 .idea
 ardas/*.ssr
 ardas/settings.py
-ardas/data/*
-ardas/logs/*
+ardas/data
+ardas/logs
 cronlog.log
-ardas/__pycache__/*
-docs/build/*
+ardas/__pycache__
+docs/build
+arduino_sketch/build
+arduino_sketch/cmake-build-debug
