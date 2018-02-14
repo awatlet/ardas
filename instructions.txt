@@ -1,4 +1,4 @@
-TODO before reunning
+To setup the system
 
 1- Edit your settings
     see docs
