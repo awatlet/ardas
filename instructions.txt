@@ -6,9 +6,9 @@ TODO before reunning
 2- Create your sensors files
 
 
-3- Create a crontab task:
-   PYTHONPATH=~/ardas
+3- Create a crontab task (here assuming user pi):
+   PYTHONPATH=/home/pi/ardas
 
-    # m h  dom mon dow   command
-    @reboot /usr/bin/python3 ~/ardas/ardas/raspardas.py > ~/ardas/cronlog.log 2>&1
+   # m h  dom mon dow   command
+   @reboot /usr/bin/python3 /home/pi/ardas/ardas/raspardas.py > /home/pi/ardas/cronlog.log 2>&1
 
