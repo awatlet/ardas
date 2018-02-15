@@ -12,6 +12,11 @@ Install required packages ::
 
     sudo apt-get install arduino cmake gcc-avr binutils-avr avr-libc avrdude
 
+Fixing missing openjdk library in Debian Stretch::
+
+    sudo mkdir /usr/lib/jvm/java-1.8.0-openjdk-armhf/jre/lib/arm/server
+    sudo ln -s /usr/lib/jvm/java-8-openjdk-armhf/jre/lib/arm/client/libjvm.so /usr/lib/jvm/java-8-openjdk-armhf/jre/lib/arm/server/libjvm.so
+
 Create a directory for your project
 
 Put the `arduino cmake directory <https://github.com/queezythegreat/arduino-cmake>`_ inside this directory
