@@ -8,3 +8,4 @@ ardas/__pycache__
 docs/build
 arduino_sketch/build
 arduino_sketch/cmake-build-debug
+sensors_backup

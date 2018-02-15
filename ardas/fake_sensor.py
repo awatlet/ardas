@@ -23,6 +23,7 @@ class FakeTempSensor(Fake1WireSensor):
 
     def get_temperature(self):
         self.temperature = random.uniform(20, 28)
+        #time.sleep(random.uniform(0.2,0.8))
         return self.temperature
 
 

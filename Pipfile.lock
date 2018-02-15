@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "fd393d3a483e9ef0ed45c1dd02b42545158ce71387192551a0cf61db7c1ab3e3"
+            "sha256": "9e966fc40033548eae869151c28d284bfdbd1b6d620c856b6f6796b927eaf648"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -9,9 +9,9 @@
             "os_name": "posix",
             "platform_machine": "x86_64",
             "platform_python_implementation": "CPython",
-            "platform_release": "4.13.0-32-generic",
+            "platform_release": "4.4.0-112-generic",
             "platform_system": "Linux",
-            "platform_version": "#35~16.04.1-Ubuntu SMP Thu Jan 25 10:13:43 UTC 2018",
+            "platform_version": "#135-Ubuntu SMP Fri Jan 19 11:48:36 UTC 2018",
             "python_full_version": "3.5.2",
             "python_version": "3.5",
             "sys_platform": "linux"
@@ -95,6 +95,12 @@
                 "sha256:3de643935b212307b420248018323a44ec51987a336d1d747c1322afc3c099fb"
             ],
             "version": "==1.14.0"
+        },
+        "pause": {
+            "hashes": [
+                "sha256:8874e6a3d73c8c540b062defc91bc6929c765e2283803f124a365826da846eaa"
+            ],
+            "version": "==0.1.2"
         },
         "pyserial": {
             "hashes": [

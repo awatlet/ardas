@@ -12,7 +12,9 @@ influxdb = "*"
 "w1thermsensor" = "*"
 ntplib = "*"
 numpy = "*"
+pause = "*"
 
 
 [dev-packages]
-Sphinx = "*"
+
+sphinx = "*"
