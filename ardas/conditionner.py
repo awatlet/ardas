@@ -1,46 +1,20 @@
 from threading import Thread, Event
-from ardas.fake_sensor import FakeTempSensor, generate_temp_sensor
 try:
-    from w1thermsensor import W1ThermSensor
-
-    class TempSensor(W1ThermSensor):
-        pass
+    from w1thermsensor import W1ThermSensor, errors
 except:
-
-    class TempSensor(FakeTempSensor):
-        pass
+    pass
 import datetime
 from time import sleep
+from ardas.fake_sensor import FakeTempSensor, generate_temp_sensor
 import queue
 
 
-def pause_until(next):
-    """ Pauses until next
-
-    :param next: datetime.datetime.timestamp
-    """
-
-    while True:
-        now = datetime.datetime.utcnow().timestamp()
-        diff = next - now
-        if diff <= 0:
-            break
-        if diff <= 0.1:
-            sleep(0.001)
-        elif diff <= 0.5:
-            sleep(0.01)
-        elif diff <= 1.5:
-            sleep(0.1)
-        else:
-            sleep(1)
-
-
-class Sampler(Thread):
+class Conditioner(Thread):
     def __init__(self, stop_event, interval, sensors, sampler_queue=None):
         Thread.__init__(self)
         self.stop_event = stop_event
-        self.__measure_interval = interval
-        self.sensors = sensors
+        self.process
+        self.pa
         self.queue = sampler_queue
 
     @property
@@ -58,7 +32,73 @@ class Sampler(Thread):
             pass
 
 
-class W1Sampler(Sampler, TempSensor):  # TODO: use W1ThermSensor instead of FakeTempSensor
+class SensorConditioner(Thread):
+    def __init__(self, stop_event, sensor_ids=None, processing_method=None, processing_parameters=None,
+                 quantity='?', units='?', output_format='%11.4f', log_output=True):
+        Thread.__init__(self)
+        self.sensor_id = sensor_id
+        self.processing_method = processing_method
+        self.processing_parameters = processing_parameters
+        self.quantity = quantity
+        self.units = units
+        self.output_format = output_format
+        self.log = log_output
+
+    @property
+    def sensor_id(self):
+        """ Gets and sets sensor id
+        """
+        return self.__sensor_id
+
+    @sensor_id.setter
+    def sensor_id(self, val):
+        self.__sensor_id = str(val[:4])
+
+    @property
+    def units(self):
+        """ Gets and sets sensor units
+        """
+        return self.__units
+
+    @units.setter
+    def units(self, val):
+        self.__units = val
+
+    def output(self, value):
+        """Outputs an output computed using the processing method and parameters
+
+        :return: processed quantity
+        :rtype: float
+        """
+
+        output = self.processing_method(value, self.processing_parameters)
+        return output
+
+    def output_repr(self, value):
+        """Gets a representation of the output
+
+        :return: representation of the processed quantity
+        :rtype: string
+        """
+
+        try:
+            s = self.output_format + ' ' + self.units
+            calibrated_output = s % self.output(value)
+        except Exception as e:
+            calibrated_output = '*** error : %s ***' % e
+        assert isinstance(calibrated_output, str)
+        return calibrated_output
+
+    def save(self):
+        """Save the sensor as a serialized object to a file """
+        f_name = cur_dir + '/sensor_' + self.sensor_id + '.ssr'
+        if Path(f_name).exists():
+            logging.warning('Sensor file ' + f_name + ' already exists, unable to save sensor')
+        else:
+            with open(f_name, 'wb') as sensor_file:
+                dump(self, sensor_file)
+
+class W1Sampler(Sampler, FakeTempSensor):  # TODO: use W1ThermSensor instead of FakeTempSensor
     def run(self):
         sample_before = {}
         sample_after = {}
@@ -98,7 +138,7 @@ if __name__ == '__main__':
     w1temp_queue = queue.Queue()
     fake_sensors = generate_temp_sensor(7)
     stop = Event()
-    s = W1Sampler(stop_event=stop, interval=5, sensors=fake_sensors, sampler_queue=w1temp_queue)
+    s = W1Sampler(stop_event=stop, interval=5, sensors=fake_sensors, queue=w1temp_queue)
     s.start()
     k = 0
     kmax = 20
