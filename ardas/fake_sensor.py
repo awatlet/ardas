@@ -8,7 +8,8 @@ class Fake1WireSensor:
     """Generic fake 1-Wire sensor"""
     def __init__(self, seller_id='00-00000'):
         """Generate a unique id with hexadecimal timestamp"""
-        self.id = seller_id + hex(timegm(datetime.datetime.now().utctimetuple()))[3:]
+        # self.id = seller_id + hex(timegm(datetime.datetime.now().utctimetuple()))[3:]
+        self.id = seller_id + hex(int((datetime.datetime.utcnow().timestamp()*1000000)%16**7))
 
 
 class FakeTempSensor(Fake1WireSensor):
@@ -23,6 +24,7 @@ class FakeTempSensor(Fake1WireSensor):
 
     def get_temperature(self):
         self.temperature = random.uniform(20, 28)
+        time.sleep(random.uniform(0.2, 0.5))
         return self.temperature
 
 
@@ -32,12 +34,12 @@ def generate_temp_sensor(nb_sensor=2):
         s = FakeTempSensor()
         s.set_name('T' + str(i))
         sensors.append(s)
-        time.sleep(1)  # mandatory otherwise each sensor will have the same name
+        time.sleep(0.00001)  # mandatory otherwise each sensor could have the same name
     return sensors
 
 
 def main():
-    sensors = generate_temp_sensor()
+    sensors = generate_temp_sensor(10)
     for s in sensors:
         print("Temperature of {:s} is {:.3f}".format(s.id, s.get_temperature()))
 
