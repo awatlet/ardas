@@ -15,7 +15,6 @@ except:
 
     class TempSensor(FakeTempSensor):
         def __init__(self):
-            print('init TempSensor')
             FakeTempSensor.__init__(self)
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
@@ -82,9 +81,9 @@ def load_sensor(sensor_id):
 class SensorConditioner(object):
     """ A class to handle sensors
     """
-    def __init__(self, name='', processing_method=None, processing_parameters=None,
+    def __init__(self, sensor=None, name='', processing_method=None, processing_parameters=None,
                  quantity='', units='', output_format='%11.4f', log_output=True):
-        print('init Sensor')
+        self.sensor = sensor
         self.__name = name
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
@@ -184,9 +183,8 @@ class UncalibratedFMSensorConditioner(FMSensorConditioner):
 
 class W1TempSensorConditioner(SensorConditioner):
     def __init__(self, sensor, name, processing_method=no_processing, processing_parameters=None):
-        print('init W1TempSensor')
-        SensorConditioner.__init__(self, name, processing_method, processing_parameters)
-        self.sensor = sensor
+        SensorConditioner.__init__(self, sensor=sensor, name=name, processing_method=processing_method,
+                                   processing_parameters=processing_parameters)
         self.quantity = 'temp.'
         self.units = '°C'
 
@@ -205,7 +203,6 @@ def generate_w1temp_sensors_conditioners(nb_sensor=2, sensors=None):
         sensors = generate_w1temp_sensors(nb_sensor)
     else:
         nb_sensor = len(sensors)
-    print(nb_sensor)
     sensors_conditioners = []
     for i in range(nb_sensor):
         s = W1TempSensorConditioner(sensor=sensors[i], name='T%03d' % i)
