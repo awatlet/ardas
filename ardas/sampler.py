@@ -81,6 +81,7 @@ if __name__ == '__main__':
         sensors = TempSensor.get_available_sensors()
     except:
         sensors = generate_w1temp_sensors(7)
+    print(sensors)
     stop = Event()
     s = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=w1temp_queue)
     s.start()
