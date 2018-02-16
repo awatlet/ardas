@@ -3,6 +3,17 @@ import os
 from pathlib import Path
 from pickle import dump, load
 import logging
+from time import sleep
+try:
+    from w1thermsensor import W1ThermSensor
+
+    class TempSensor(W1ThermSensor):
+        pass
+except:
+    from ardas.fake_sensor import FakeTempSensor
+
+    class TempSensor(FakeTempSensor):
+        pass
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -44,6 +55,15 @@ def running_average(n):
             average = np.nan
 
 
+def no_processing(value):
+    """Simple copy of the value
+
+    :param value: value from sensor
+    :return: same value
+    """
+    return value
+
+
 def load_sensor(sensor_id):
     """Loads a sensor object from a sensor '.ssr' file
 
@@ -56,36 +76,69 @@ def load_sensor(sensor_id):
     return sensor
 
 
-class FMSensor(object):
-    def __init__(self, sensor_id='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
-                 quantity='freq.', units='Hz', output_format='%11.4f', log_output=True):
-        self.sensor_id = sensor_id
+class Sensor(object):
+    """ A class to handle sensors
+    """
+    def __init__(self, sensor_id='', sensor_name='', processing_method=None, processing_parameters=None,
+                 quantity='', units='', output_format='%11.4f', log_output=True):
+        self.__sensor_id = sensor_id
+        self.__name = sensor_name
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
-        self.quantity = quantity
-        self.units = units
-        self.output_format = output_format
-        self.log = log_output
+        self.__quantity = quantity
+        self.__units = units
+        self.__output_format = output_format
+        self.__log = log_output
 
     @property
     def sensor_id(self):
-        """ Gets and sets sensor id
+        """Gets and sets sensor id
         """
         return self.__sensor_id
 
     @sensor_id.setter
     def sensor_id(self, val):
-        self.__sensor_id = str(val[:4])
+        self.__sensor_id = str(val)
+
+    @property
+    def name(self):
+        """Gets and sets sensor name
+        """
+        return self.__name
+
+    @name.setter
+    def name(self, val):
+        self.__name = str(val)
+
+    @property
+    def quantity(self):
+        """Gets and sets sensor units
+        """
+        return self.__quantity
+
+    @quantity.setter
+    def quantity(self, val):
+        self.__quantity = str(val)
 
     @property
     def units(self):
-        """ Gets and sets sensor units
+        """Gets and sets sensor units
         """
         return self.__units
 
     @units.setter
     def units(self, val):
         self.__units = val
+
+    @property
+    def output_format(self):
+        """Gets and sets sensor units
+        """
+        return self.__output_format
+
+    @units.setter
+    def output_format(self, val):
+        self.__output_format = val
 
     def output(self, value):
         """Outputs an output computed using the processing method and parameters
@@ -122,10 +175,37 @@ class FMSensor(object):
                 dump(self, sensor_file)
 
 
+class FMSensor(Sensor):
+    """A subclass of the Sensor object with a simpler interface"""
+    def __init__(self, sensor_id='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
+                 quantity='freq.', units='Hz'):
+        super().__init__(sensor_id=sensor_id, name=sensor_id, processing_method=processing_method,
+                       processing_parameters=processing_parameters, quantity=quantity, units=units)
+
+
 class UncalibratedFMSensor(FMSensor):
-    """ A subclass of the sensor object with a simpler """
+    """A subclass of the FMsensor object with a simpler interface"""
     def __init__(self, sensor_id='0000', log_output=True):
         super().__init__(sensor_id=sensor_id, log_output=log_output)
+
+
+class W1TempSensor(Sensor, TempSensor):
+    def __init__(self, sensor_id, name, processing_method=no_processing, processing_parameters=None):
+        Sensor.__init__(self, sensor_id, name, processing_method, processing_parameters)
+        TempSensor.__init__(self)
+        if sensor_id is None:
+            self.sensor_id = self.generate_sensor_id()
+        self.quantity = 'temp.'
+        self.units = '°C'
+
+
+def generate_w1temp_sensors(nb_sensor=2):
+    sensors = []
+    for i in range(nb_sensor):
+        s = W1TempSensor(sensor_id=None, name='T%03d' %i)
+        sensors.append(s)
+        sleep(0.00001)  # mandatory otherwise each sensor could have the same name
+    return sensors
 
 
 if __name__ == '__main__':

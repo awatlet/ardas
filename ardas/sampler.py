@@ -1,14 +1,5 @@
 from threading import Thread, Event
-from ardas.fake_sensor import FakeTempSensor, generate_temp_sensor
-try:
-    from w1thermsensor import W1ThermSensor
-
-    class TempSensor(W1ThermSensor):
-        pass
-except:
-
-    class TempSensor(FakeTempSensor):
-        pass
+from ardas.sensor_tools import generate_w1temp_sensors, TempSensor
 import datetime
 from time import sleep
 import queue
@@ -58,47 +49,37 @@ class Sampler(Thread):
             pass
 
 
-class W1Sampler(Sampler, TempSensor):  # TODO: use W1ThermSensor instead of FakeTempSensor
+class W1Sampler(Sampler, TempSensor):
     def run(self):
         sample_before = {}
         sample_after = {}
         sample = {}
         for i in self.sensors:
-            sample_before[i.name] = (datetime.datetime.utcnow().timestamp(), self.get_temperature())
-            sample_after[i.name] = sample_before[i.name]
-            sample[i.name] = sample_before[i.name]
+            sample_before[i.sensor_id] = (datetime.datetime.utcnow().timestamp(), self.get_temperature())
+            sample_after[i.sensor_id] = sample_before[i.sensor_id]
+            sample[i.sensor_id] = sample_before[i.sensor_id]
         next_sample_time = datetime.datetime.utcnow().timestamp()
         while not self.stop_event.isSet():
-            # print('Next measure: %s' %datetime.datetime.fromtimestamp(next_sample_time).isoformat())
             for i in self.sensors:
-                # print('__________________________________________')
-                sample_after[i.name] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
-                # print('before %s - %s: %f' % (
-                # datetime.datetime.fromtimestamp(sample_before[i.name][0]).isoformat(), i.name, sample_before[i.name][1]))
-                # print('after %s - %s: %f' % (
-                # datetime.datetime.fromtimestamp(sample_after[i.name][0]).isoformat(), i.name, sample_after[i.name][1]))
-
-                value = sample_before[i.name][1] + (next_sample_time - sample_before[i.name][0]) \
-                        / (sample_after[i.name][0] - sample_before[i.name][0]) \
-                        * (sample_after[i.name][1] - sample_before[i.name][1])
-                sample[i.name] = (next_sample_time, value)
-                # print('interpolated %s - %s : %.3f' % (datetime.datetime.fromtimestamp(int(next_sample_time)).isoformat(), i.name, sample[i.name][1]))
-                # print('__________________________________________')
-                sample_before[i.name] = sample_after[i.name]
-                data=({'tags': {'sensor': '%s' % i.name},
-                       'time': datetime.datetime.fromtimestamp(sample[i.name][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
-                       'fields': {'value': sample[i.name][1]}})
+                sample_after[i.sensor_id] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
+                value = sample_before[i.sensor_id][1] + (next_sample_time - sample_before[i.sensor_id][0]) \
+                        / (sample_after[i.sensor_id][0] - sample_before[i.sensor_id][0]) \
+                        * (sample_after[i.sensor_id][1] - sample_before[i.sensor_id][1])
+                sample[i.sensor_id] = (next_sample_time, value)
+                sample_before[i.sensor_id] = sample_after[i.sensor_id]
+                data = {'tags': {'sensor': '%s' % i.sensor_id, 'name': '%s' % i.name},
+                        'time': datetime.datetime.fromtimestamp(sample[i.sensor_id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
+                        'fields': {'value': sample[i.sensor_id][1]}}
                 self.queue.put(data)
-            # print('\n\n')
             next_sample_time = next_sample_time + self.measure_interval
             pause_until(next_sample_time)
 
 
 if __name__ == '__main__':
     w1temp_queue = queue.Queue()
-    fake_sensors = generate_temp_sensor(7)
+    sensors = generate_w1temp_sensors(7)
     stop = Event()
-    s = W1Sampler(stop_event=stop, interval=5, sensors=fake_sensors, sampler_queue=w1temp_queue)
+    s = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=w1temp_queue)
     s.start()
     k = 0
     kmax = 20
