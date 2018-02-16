@@ -8,12 +8,14 @@ try:
     from w1thermsensor import W1ThermSensor
 
     class TempSensor(W1ThermSensor):
-        pass
+        def __init__(self):
+            W1ThermSensor.__init__(self)
 except:
     from ardas.fake_sensor import FakeTempSensor
 
     class TempSensor(FakeTempSensor):
-        pass
+        def __init__(self):
+            FakeTempSensor.__init__(self)
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -193,8 +195,6 @@ class W1TempSensor(Sensor, TempSensor):
     def __init__(self, sensor_id, name, processing_method=no_processing, processing_parameters=None):
         Sensor.__init__(self, sensor_id, name, processing_method, processing_parameters)
         TempSensor.__init__(self)
-        if sensor_id is None:
-            self.sensor_id = self.generate_sensor_id()
         self.quantity = 'temp.'
         self.units = '°C'
 
