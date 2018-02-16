@@ -79,14 +79,13 @@ def load_sensor(sensor_id):
     return sensor
 
 
-class Sensor(object):
+class SensorConditioner(object):
     """ A class to handle sensors
     """
-    def __init__(self, sensor_id='', sensor_name='', processing_method=None, processing_parameters=None,
+    def __init__(self, name='', processing_method=None, processing_parameters=None,
                  quantity='', units='', output_format='%11.4f', log_output=True):
         print('init Sensor')
-        #self.__sensor_id = sensor_id
-        self.__name = sensor_name
+        self.__name = name
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
         self.__quantity = quantity
@@ -130,7 +129,7 @@ class Sensor(object):
         """
         return self.__output_format
 
-    @units.setter
+    @output_format.setter
     def output_format(self, val):
         self.__output_format = val
 
@@ -159,9 +158,9 @@ class Sensor(object):
         assert isinstance(calibrated_output, str)
         return calibrated_output
 
-    def save(self):
+    def save(self):  # TODO deal with sensors sensor conditioner and channel
         """Save the sensor as a serialized object to a file """
-        f_name = cur_dir + '/sensor_' + self.sensor_id + '.ssr'
+        f_name = cur_dir + '/sensor_' + self.name + '.ssr'
         if Path(f_name).exists():
             logging.warning('Sensor file ' + f_name + ' already exists, unable to save sensor')
         else:
@@ -169,25 +168,25 @@ class Sensor(object):
                 dump(self, sensor_file)
 
 
-class FMSensor(Sensor):
+class FMSensorConditioner(SensorConditioner):
     """A subclass of the Sensor object with a simpler interface"""
-    def __init__(self, sensor_id='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
+    def __init__(self, name='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
                  quantity='freq.', units='Hz'):
-        super().__init__(sensor_id=sensor_id, name=sensor_id, processing_method=processing_method,
+        SensorConditioner.__init__(name=name, processing_method=processing_method,
                        processing_parameters=processing_parameters, quantity=quantity, units=units)
 
 
-class UncalibratedFMSensor(FMSensor):
+class UncalibratedFMSensorConditioner(FMSensorConditioner):
     """A subclass of the FMsensor object with a simpler interface"""
-    def __init__(self, sensor_id='0000', log_output=True):
-        super().__init__(sensor_id=sensor_id, log_output=log_output)
+    def __init__(self, name='0000', log_output=True):
+        FMSensorConditioner.__init__(name=name, log_output=log_output)
 
 
-class W1TempSensor(Sensor, TempSensor):
-    def __init__(self, sensor_id, name, processing_method=no_processing, processing_parameters=None):
+class W1TempSensorConditioner(SensorConditioner):
+    def __init__(self, sensor, name, processing_method=no_processing, processing_parameters=None):
         print('init W1TempSensor')
-        Sensor.__init__(self, sensor_id, name, processing_method, processing_parameters)
-        TempSensor.__init__(self)
+        SensorConditioner.__init__(self, name, processing_method, processing_parameters)
+        self.sensor = sensor
         self.quantity = 'temp.'
         self.units = '°C'
 
@@ -195,10 +194,23 @@ class W1TempSensor(Sensor, TempSensor):
 def generate_w1temp_sensors(nb_sensor=2):
     sensors = []
     for i in range(nb_sensor):
-        s = W1TempSensor(sensor_id=None, name='T%03d' %i)
+        s = TempSensor()
         sensors.append(s)
         sleep(0.00001)  # mandatory otherwise each sensor could have the same name
     return sensors
+
+
+def generate_w1temp_sensors_conditioners(nb_sensor=2, sensors=None):
+    if sensors is None:
+        sensors = generate_w1temp_sensors(nb_sensor)
+    else:
+        nb_sensor = len(sensors)
+    print(nb_sensor)
+    sensors_conditioners = []
+    for i in range(nb_sensor):
+        s = W1TempSensorConditioner(sensor=sensors[i], name='T%03d' % i)
+        sensors_conditioners.append(s)
+    return sensors_conditioners
 
 
 if __name__ == '__main__':

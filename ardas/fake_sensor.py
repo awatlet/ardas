@@ -10,7 +10,6 @@ class Fake1WireSensor(object):
         print('init Fake1WTempSensor')
         self.sensor_id = sensor_id
         self.seller_id = seller_id
-        print('sens')
         if self.sensor_id is None:
             self.generate_sensor_id()
 

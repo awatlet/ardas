@@ -4,12 +4,12 @@ from ardas import sensor_tools as st
 
 sensors = (st.UncalibratedFMSensor(sensor_id='0001', log_output=False),
            st.UncalibratedFMSensor(sensor_id='0002', log_output=False),
-           st.FMSensor(sensor_id='0003', processing_parameters=(-16.9224032438, 0.0041525221, -1.31475837290789E-07,
-                                                                2.39122208189129E-012, -1.72530800355418E-017),
-                       quantity='temp.', units='°C', output_format='%6.3f', log_output=True),
-           st.FMSensor(sensor_id='0004', processing_parameters=(-16.9224032438, 0.0041525221, -1.31475837290789E-07,
-                                                                2.39122208189129E-012, -1.72530800355418E-017),
-                       quantity='temp.', units='°C', output_format='%6.3f', log_output=True)
+           st.FMSensorConditioner(sensor_id='0003', processing_parameters=(-16.9224032438, 0.0041525221, -1.31475837290789E-07,
+                                                                           2.39122208189129E-012, -1.72530800355418E-017),
+                                  quantity='temp.', units='°C', output_format='%6.3f', log_output=True),
+           st.FMSensorConditioner(sensor_id='0004', processing_parameters=(-16.9224032438, 0.0041525221, -1.31475837290789E-07,
+                                                                           2.39122208189129E-012, -1.72530800355418E-017),
+                                  quantity='temp.', units='°C', output_format='%6.3f', log_output=True)
            )
 
 if __name__ == '__main__':
