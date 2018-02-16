@@ -7,8 +7,10 @@ class Fake1WireSensor(object):
     """Generic fake 1-Wire sensor"""
     def __init__(self, seller_id='00-00000', sensor_id=None):
         """Generate a unique id from an hexadecimal timestamp"""
+        print('init Fake1WTempSensor')
         self.sensor_id = sensor_id
-        self.__seller_id = seller_id
+        self.seller_id = seller_id
+        print('sens')
         if self.sensor_id is None:
             self.generate_sensor_id()
 
@@ -23,14 +25,16 @@ class Fake1WireSensor(object):
         self.__sensor_id = val
 
     def generate_sensor_id(self):
-        self.sensor_id = self.__seller_id + hex(int((datetime.datetime.utcnow().timestamp() * 1000000) % 16 ** 7))
+        print("sensor_id generated")
+        self.sensor_id = self.seller_id + hex(int((datetime.datetime.utcnow().timestamp() * 1000000) % 16 ** 7))
 
 
 class FakeTempSensor(Fake1WireSensor):
     """Fake 1-Wire temperature sensor default is DS18B20"""
     def __init__(self):
+        print('init FakeTempSensor')
         Fake1WireSensor.__init__(self, seller_id='28-00000', sensor_id=None)
-        self.temperature = 0
+        self.temperature = 0.
 
     def get_temperature(self):
         self.temperature = random.uniform(20, 28)

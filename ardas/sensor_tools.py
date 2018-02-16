@@ -15,6 +15,7 @@ except:
 
     class TempSensor(FakeTempSensor):
         def __init__(self):
+            print('init TempSensor')
             FakeTempSensor.__init__(self)
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
@@ -83,7 +84,8 @@ class Sensor(object):
     """
     def __init__(self, sensor_id='', sensor_name='', processing_method=None, processing_parameters=None,
                  quantity='', units='', output_format='%11.4f', log_output=True):
-        self.__sensor_id = sensor_id
+        print('init Sensor')
+        #self.__sensor_id = sensor_id
         self.__name = sensor_name
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
@@ -91,16 +93,6 @@ class Sensor(object):
         self.__units = units
         self.__output_format = output_format
         self.__log = log_output
-
-    @property
-    def sensor_id(self):
-        """Gets and sets sensor id
-        """
-        return self.__sensor_id
-
-    @sensor_id.setter
-    def sensor_id(self, val):
-        self.__sensor_id = str(val)
 
     @property
     def name(self):
@@ -193,6 +185,7 @@ class UncalibratedFMSensor(FMSensor):
 
 class W1TempSensor(Sensor, TempSensor):
     def __init__(self, sensor_id, name, processing_method=no_processing, processing_parameters=None):
+        print('init W1TempSensor')
         Sensor.__init__(self, sensor_id, name, processing_method, processing_parameters)
         TempSensor.__init__(self)
         self.quantity = 'temp.'

@@ -77,7 +77,10 @@ class W1Sampler(Sampler, TempSensor):
 
 if __name__ == '__main__':
     w1temp_queue = queue.Queue()
-    sensors = generate_w1temp_sensors(7)
+    try :
+        sensors = TempSensor.get_available_sensors()
+    except:
+        sensors = generate_w1temp_sensors(7)
     stop = Event()
     s = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=w1temp_queue)
     s.start()
