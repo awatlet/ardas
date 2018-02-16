@@ -9,7 +9,7 @@ Get the code::
 
 Install the requirements::
 
-    sudo pip3 install requirements.txt
+    sudo pip3 install -r requirements.txt
 
 
 **Note**: numpy<=1.14 will fail to install (Original error was: **libf77blas.so.3**: cannot open shared object file: No such file or directory)
