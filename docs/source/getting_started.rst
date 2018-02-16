@@ -1,9 +1,23 @@
 Getting started
 ===============
 
+
 Get the code::
 
     git clone https://github.com/UMONS-GFA/ardas.git
+
+
+Install the requirements::
+
+    sudo pip3 install requirements.txt
+
+
+**Note**: numpy<=1.14 will fail to install (Original error was: **libf77blas.so.3**: cannot open shared object file: No such file or directory)
+
+To fix this::
+
+    sudo apt install libatlas-base-dev
+
 
 Edit the **settings_example.py** file according to your configuration and rename it settings.py.
 
