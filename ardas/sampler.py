@@ -83,11 +83,9 @@ if __name__ == '__main__':
         sensors = TempSensor.get_available_sensors()
     except:
         sensors = generate_w1temp_sensors(7)
-    print(sensors)
     sensors_conditioners = generate_w1temp_sensors_conditioners(sensors=sensors)
     stop = Event()
     s = W1Sampler(stop_event=stop, interval=5, sensors_conditioners=sensors_conditioners, sampler_queue=w1temp_queue)
-    print('starting sampler')
     s.start()
     k = 0
     kmax = 20
@@ -100,7 +98,6 @@ if __name__ == '__main__':
         sleep(1)
     stop.set()
     s.join()
-    print('stopping sampler')
     empty_queue = False
     while not empty_queue:
         try:
