@@ -7,7 +7,7 @@ class Fake1WireSensor(object):
     """Generic fake 1-Wire sensor"""
     def __init__(self, seller_id='00-00000', sensor_id=None):
         """Generate a unique id from an hexadecimal timestamp"""
-        self.sensor_id = sensor_id
+        self.__sensor_id = sensor_id
         self.seller_id = seller_id
         if self.sensor_id is None:
             self.generate_sensor_id()
