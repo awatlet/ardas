@@ -8,12 +8,12 @@ try:
     from w1thermsensor import W1ThermSensor
 
     class TempSensor(W1ThermSensor):
-        def __init__(self):
-            super(W1ThermSensor, self).__init__()
+        @classmethod
+        def get_available_sensors(self, types=None):
+            return W1ThermSensor.get_available_sensors(types)
 
-
-        def get_available_sensors(self):
-            return W1ThermSensor.get_available_sensors()
+        def __init__(self, sensor_type=None, sensor_id=None):
+            super(W1ThermSensor, self).__init__(sensor_type, sensor_id)
 
 except:
     from ardas.fake_sensor import FakeTempSensor
