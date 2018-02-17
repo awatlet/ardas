@@ -11,8 +11,9 @@ try:
         def __init__(self):
             super(W1ThermSensor, self).__init__()
 
+
         def get_available_sensors(self):
-            super(W1ThermSensor, self).get_available_sensors()
+            return W1ThermSensor.get_available_sensors()
 
 except:
     from ardas.fake_sensor import FakeTempSensor
