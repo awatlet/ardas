@@ -16,7 +16,7 @@ except:
 
     class TempSensor(FakeTempSensor):
         def __init__(self):
-            super(FakeTempSensor, self).__init__()
+            super(TempSensor, self).__init__()
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 

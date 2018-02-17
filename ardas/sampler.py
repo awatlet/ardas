@@ -56,7 +56,7 @@ class W1Sampler(Sampler, TempSensor):
         sample = {}
         for j in self.sensors_conditioners:
             i = j.sensor
-            sample_before[i.id] = (datetime.datetime.utcnow().timestamp(), self.get_temperature())
+            sample_before[i.id] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
             sample_after[i.id] = sample_before[i.id]
             sample[i.id] = sample_before[i.id]
         next_sample_time = datetime.datetime.utcnow().timestamp()

@@ -29,7 +29,7 @@ class Fake1WireSensor(object):
 class FakeTempSensor(Fake1WireSensor):
     """Fake 1-Wire temperature sensor default is DS18B20"""
     def __init__(self):
-        Fake1WireSensor.__init__(self, seller_id='28-00000', id=None)
+        super(FakeTempSensor, self).__init__(seller_id='28-00000', id=None)
         self.temperature = 0.
 
     def get_temperature(self):
