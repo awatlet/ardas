@@ -9,7 +9,7 @@ try:
 
     class TempSensor(W1ThermSensor):
         @classmethod
-        def get_available_sensors(self, types=None):
+        def get_available_sensors(cls, types=None):
             return W1ThermSensor.get_available_sensors(types)
 
         def __init__(self, sensor_type=None, sensor_id=None):
