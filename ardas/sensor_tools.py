@@ -9,13 +9,13 @@ try:
 
     class TempSensor(W1ThermSensor):
         def __init__(self):
-            W1ThermSensor.__init__(self)
+            super(W1ThermSensor, self).__init__()
 except:
     from ardas.fake_sensor import FakeTempSensor
 
     class TempSensor(FakeTempSensor):
         def __init__(self):
-            FakeTempSensor.__init__(self)
+            super(FakeTempSensor, self).__init__()
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 
