@@ -27,17 +27,17 @@ class SensorConditioner(Thread):
         while not self.stop_event.isSet():
             pass
 
-    def output_repr(self, sensor_id, value):
+    def output_repr(self, id, value):
         """ Gets a representation of the output
 
-        :param sensor_id: sensor identification
+        :param id: sensor identification
         :param value: value to condition
         :return: representation of the processed quantity
         :rtype: string
         """
 
         try:
-            sensor = self.sensors[sensor_id]
+            sensor = self.sensors[id]
             s = sensor.output_format + ' ' + sensor.units
             conditioned_output = s % sensor.output(value)
         except Exception as e:

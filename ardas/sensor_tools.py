@@ -66,13 +66,13 @@ def no_processing(value):
     return value
 
 
-def load_sensor(sensor_id):
+def load_sensor(id):
     """Loads a sensor object from a sensor '.ssr' file
 
-    :param sensor_id: a unique identification number of the sensor
+    :param id: a unique identification number of the sensor
     :return: a sensor object
     :rtype: sensor"""
-    f_name = cur_dir + '/sensor_' + sensor_id + '.ssr'
+    f_name = cur_dir + '/sensor_' + id + '.ssr'
     with open(f_name, 'rb') as sensor_file:
         sensor = load(sensor_file)
     return sensor

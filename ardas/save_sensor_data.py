@@ -145,7 +145,7 @@ def main():
                     results = list(result_set.get_points(measurement='temperatures'))
                     for result in results:
                         s = FakeTempSensor()
-                        s.sensor_id = result['sensorID']
+                        s.id = result['sensorID']
                         sensors.append(s)
                 except requests.exceptions.ConnectionError:
                     logging.error("Database connection lost !")

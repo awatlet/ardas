@@ -56,22 +56,22 @@ class W1Sampler(Sampler, TempSensor):
         sample = {}
         for j in self.sensors_conditioners:
             i = j.sensor
-            sample_before[i.sensor_id] = (datetime.datetime.utcnow().timestamp(), self.get_temperature())
-            sample_after[i.sensor_id] = sample_before[i.sensor_id]
-            sample[i.sensor_id] = sample_before[i.sensor_id]
+            sample_before[i.id] = (datetime.datetime.utcnow().timestamp(), self.get_temperature())
+            sample_after[i.id] = sample_before[i.id]
+            sample[i.id] = sample_before[i.id]
         next_sample_time = datetime.datetime.utcnow().timestamp()
         while not self.stop_event.isSet():
             for j in self.sensors_conditioners:
                 i = j.sensor
-                sample_after[i.sensor_id] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
-                value = sample_before[i.sensor_id][1] + (next_sample_time - sample_before[i.sensor_id][0]) \
-                        / (sample_after[i.sensor_id][0] - sample_before[i.sensor_id][0]) \
-                        * (sample_after[i.sensor_id][1] - sample_before[i.sensor_id][1])
-                sample[i.sensor_id] = (next_sample_time, value)
-                sample_before[i.sensor_id] = sample_after[i.sensor_id]
-                data = {'tags': {'sensor': '%s' % i.sensor_id, 'name': '%s' % j.name},
-                        'time': datetime.datetime.fromtimestamp(sample[i.sensor_id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
-                        'fields': {'value': sample[i.sensor_id][1]}}
+                sample_after[i.id] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
+                value = sample_before[i.id][1] + (next_sample_time - sample_before[i.id][0]) \
+                        / (sample_after[i.id][0] - sample_before[i.id][0]) \
+                        * (sample_after[i.id][1] - sample_before[i.id][1])
+                sample[i.id] = (next_sample_time, value)
+                sample_before[i.id] = sample_after[i.id]
+                data = {'tags': {'sensor': '%s' % i.id, 'name': '%s' % j.name},
+                        'time': datetime.datetime.fromtimestamp(sample[i.id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
+                        'fields': {'value': sample[i.id][1]}}
                 self.queue.put(data)
             next_sample_time = next_sample_time + self.measure_interval
             pause_until(next_sample_time)
