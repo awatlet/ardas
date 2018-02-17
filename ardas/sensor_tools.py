@@ -13,7 +13,7 @@ try:
             return W1ThermSensor.get_available_sensors(types)
 
         def __init__(self, sensor_type=None, sensor_id=None):
-            super(W1ThermSensor, self).__init__(sensor_type=sensor_type, sensor_id=sensor_id)
+            super(TempSensor, self).__init__(sensor_type=sensor_type, sensor_id=sensor_id)
 
 except:
     from ardas.fake_sensor import FakeTempSensor
