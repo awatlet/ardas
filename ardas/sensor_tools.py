@@ -8,10 +8,6 @@ try:
     from w1thermsensor import W1ThermSensor
 
     class TempSensor(W1ThermSensor):
-        @classmethod
-        def get_available_sensors(cls, types=None):
-            return W1ThermSensor.get_available_sensors(types)
-
         def __init__(self, sensor_type=None, sensor_id=None):
             super(TempSensor, self).__init__(sensor_type=sensor_type, sensor_id=sensor_id)
 
