@@ -204,10 +204,10 @@ def generate_w1temp_sensors_conditioners(nb_sensor=2, sensors=None):
         sensors = generate_w1temp_sensors(nb_sensor)
     else:
         nb_sensor = len(sensors)
-    sensors_conditioners = []
+    sensors_conditioners = {}
     for i in range(nb_sensor):
         s = W1TempSensorConditioner(sensor=sensors[i], name='T%03d' % i)
-        sensors_conditioners.append(s)
+        sensors_conditioners.update({'%s%s' % (sensors[i].slave_prefix, sensors[i].id): s})
     return sensors_conditioners
 
 

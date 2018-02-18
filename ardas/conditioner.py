@@ -1,31 +1,63 @@
 from threading import Thread, Event
 from time import sleep
-from ardas.sampler import generate_w1temp_sensors, W1Sampler
-from ardas import sensor_tools as st
+from ardas.sampler import W1Sampler
+from ardas.sensor_tools import TempSensor, generate_w1temp_sensors, generate_w1temp_sensors_conditioners
 import queue
 
 
-class SensorConditioner(Thread):
-    def __init__(self, stop_event, sensors, sampler_queue, logger_queue, loggers=None):
+class Conditioner(Thread):
+    def __init__(self, stop_event, sensors_conditioners, sampler_queue, logger_queue, loggers=None):
         Thread.__init__(self)
-        self.__sensors = sensors
+        self.stop_event = stop_event
+        self.__sensors_conditioners = sensors_conditioners
         self.sampler_queue = sampler_queue
         self.logger_queue = logger_queue
         self.loggers = loggers
 
     @property
-    def sensors(self):
+    def sensors_conditioners(self):
         """ Gets and sets sensor id
         """
-        return self.__sensors
+        return self.__sensors_conditioners
 
-    @sensors.setter
-    def sensors(self, val):
-        self.__sensors = val
+    @sensors_conditioners.setter
+    def sensors_conditioners(self, val):
+        self.__sensors_conditioners = val
 
     def run(self):
         while not self.stop_event.isSet():
-            pass
+            try:
+                sample = self.sampler_queue.get()
+                sc_id = sample['tags']['sensor']
+                sc = self.sensors_conditioners[sc_id]
+                sc.p
+                data = {'tags': {'sensor': '%s%s' % (i.slave_prefix, i.id)},
+                        'time': datetime.datetime.fromtimestamp(sample[i.id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
+                        'fields': {'value': sample[i.id][1]}}
+                self.logger_queue.put(data)
+            except queue.Empty:
+                pass
+            # for i in self.sensors:
+            #     # i = j.sensor
+            #     sample_before[i.id] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
+            #     sample_after[i.id] = sample_before[i.id]
+            #     sample[i.id] = sample_before[i.id]
+            # next_sample_time = datetime.datetime.utcnow().timestamp()
+            # while not self.stop_event.isSet():
+            #     for i in self.sensors:
+            #         # i = j.sensor
+            #         sample_after[i.id] = (datetime.datetime.utcnow().timestamp(), i.get_temperature())
+            #         value = sample_before[i.id][1] + (next_sample_time - sample_before[i.id][0]) \
+            #                 / (sample_after[i.id][0] - sample_before[i.id][0]) \
+            #                 * (sample_after[i.id][1] - sample_before[i.id][1])
+            #         sample[i.id] = (next_sample_time, value)
+            #         sample_before[i.id] = sample_after[i.id]
+            #         data = {'tags': {'sensor': '%s%s' % (i.slave_prefix, i.id)},
+            #                 'time': datetime.datetime.fromtimestamp(sample[i.id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
+            #                 'fields': {'value': sample[i.id][1]}}
+            #         self.queue.put(data)
+            #     next_sample_time = next_sample_time + self.measure_interval
+            #     pause_until(next_sample_time)
 
     def output_repr(self, id, value):
         """ Gets a representation of the output
@@ -47,27 +79,36 @@ class SensorConditioner(Thread):
 
 
 if __name__ == '__main__':
-    w1temp_queue = queue.Queue()
+    sampler_queue = queue.Queue()
     logger_queue = queue.Queue()
+    try:
+        s = TempSensor()
+        sensors = s.get_available_sensors()
+    except:
+        sensors = generate_w1temp_sensors(7)
     stop = Event()
-    sensors = generate_w1temp_sensors(7)
-    sampler = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=w1temp_queue)
-    c = SensorConditioner(stop_event=stop, sensors=sensors, sampler_queue=w1temp_queue, logger_queue=logger_queue)
+    sampler = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=sampler_queue)
+    sensors_conditioners = generate_w1temp_sensors_conditioners(sensors=sensors)
+    print(sensors_conditioners)
+    conditioner = Conditioner(stop_event=stop, sensors_conditioners=sensors_conditioners, sampler_queue=sampler_queue,
+                              logger_queue=logger_queue)
     sampler.start()
+    conditioner.start()
     k = 0
-    kmax = 20
-    while k < 20:
+    kmax = 10
+    while k < kmax:
         try:
-            print(w1temp_queue.get(timeout=0.1))
+            print('.')  # sampler_queue.get(timeout=0.1))
         except queue.Empty:
             pass
         k +=1
         sleep(1)
     stop.set()
-    sampler.join()
+    sampler.join(timeout=1.0)
+    conditioner.join(timeout=1.0)
     empty_queue = False
     while not empty_queue:
         try:
-            print(w1temp_queue.get(timeout=0.1))
+            print(logger_queue.get(timeout=0.1))
         except queue.Empty:
             empty_queue = True
