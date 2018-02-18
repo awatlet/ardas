@@ -27,14 +27,15 @@ class Conditioner(Thread):
     def run(self):
         while not self.stop_event.isSet():
             try:
-                sample = self.sampler_queue.get()
-                sc_id = sample['tags']['sensor']
-                sc = self.sensors_conditioners[sc_id]
-                sc.p
-                data = {'tags': {'sensor': '%s%s' % (i.slave_prefix, i.id)},
-                        'time': datetime.datetime.fromtimestamp(sample[i.id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
-                        'fields': {'value': sample[i.id][1]}}
-                self.logger_queue.put(data)
+                sample = self.sampler_queue.get(timeout=1.0)
+                s_id = sample['tags']['sensor']
+                value = sample['fields']['value']
+                sc = self.sensors_conditioners[s_id]
+                print(s_id, sc.quantity, self.output_repr(s_id, value))
+#                data = {'tags': {'sensor': '%s%s' % (i.slave_prefix, i.id)},
+#                        'time': datetime.datetime.fromtimestamp(sample[i.id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
+#                        'fields': {'value': sample[i.id][1]}}
+#                self.logger_queue.put(data)
             except queue.Empty:
                 pass
             # for i in self.sensors:
@@ -69,7 +70,7 @@ class Conditioner(Thread):
         """
 
         try:
-            sensor = self.sensors[id]
+            sensor = self.sensors_conditioners[id]
             s = sensor.output_format + ' ' + sensor.units
             conditioned_output = s % sensor.output(value)
         except Exception as e:
@@ -97,12 +98,8 @@ if __name__ == '__main__':
     k = 0
     kmax = 10
     while k < kmax:
-        try:
-            print('.')  # sampler_queue.get(timeout=0.1))
-        except queue.Empty:
-            pass
-        k +=1
-        sleep(1)
+        k += 1
+        sleep(1.0)
     stop.set()
     sampler.join(timeout=1.0)
     conditioner.join(timeout=1.0)

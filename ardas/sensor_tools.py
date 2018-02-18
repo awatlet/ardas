@@ -1,5 +1,4 @@
 import numpy as np
-import os
 from pathlib import Path
 from pickle import dump, load
 import logging
@@ -8,8 +7,31 @@ try:
     from w1thermsensor import W1ThermSensor
 
     class TempSensor(W1ThermSensor):
-        def __init__(self, sensor_type=None, sensor_id=None):
+        def __init__(self, sensor_type=None, sensor_id=None, name=None):
             super(TempSensor, self).__init__(sensor_type=sensor_type, sensor_id=sensor_id)
+            self.__name = name
+
+        @property
+        def name(self):
+            """Gets and sets sensor name
+            """
+            return self.__name
+
+        @name.setter
+        def name(self, val):
+            if val is not None:
+                self.__name = str(val)
+            else:
+                self.name = '%s%s' % ('28-', self.id)
+
+        def save(self):
+            """Save the sensor as a serialized object to a file """
+            f_name = cur_dir / 'sensor_' + self.name + '.ssr'
+            if Path(f_name).exists():
+                logging.warning('Sensor file ' + f_name + ' already exists, unable to save sensor')
+            else:
+                with open(f_name, 'wb') as sensor_file:
+                    dump(self, sensor_file)
 
 except:
     from ardas.fake_sensor import FakeTempSensor
@@ -18,7 +40,19 @@ except:
         def __init__(self):
             super(TempSensor, self).__init__()
 
-cur_dir = os.path.dirname(os.path.realpath(__file__))
+cur_dir = Path(__file__).resolve().parent  # os.path.dirname(os.path.realpath(__file__))
+
+
+def load_sensor(id):
+    """Loads a sensor object from a sensor '.ssr' file
+
+    :param id: a unique identification number of the sensor
+    :return: a sensor object
+    :rtype: sensor"""
+    f_name = cur_dir / 'sensor_' + id + '.ssr'
+    with open(f_name, 'rb') as sensor_file:
+        sensor = load(sensor_file)
+    return sensor
 
 
 def polynomial(value, coefs):
@@ -58,34 +92,23 @@ def running_average(n):
             average = np.nan
 
 
-def no_processing(value):
+def no_processing(value, params=None):
     """Simple copy of the value
 
     :param value: value from sensor
+    :param params: None
     :return: same value
     """
     return value
 
 
-def load_sensor(id):
-    """Loads a sensor object from a sensor '.ssr' file
-
-    :param id: a unique identification number of the sensor
-    :return: a sensor object
-    :rtype: sensor"""
-    f_name = cur_dir + '/sensor_' + id + '.ssr'
-    with open(f_name, 'rb') as sensor_file:
-        sensor = load(sensor_file)
-    return sensor
-
-
 class SensorConditioner(object):
     """ A class to handle sensors
     """
-    def __init__(self, sensor=None, name='', processing_method=None, processing_parameters=None,
+    def __init__(self, sensor=None, channel_name='', processing_method=None, processing_parameters=None,
                  quantity='', units='', output_format='%11.4f', log_output=True):
         self.sensor = sensor
-        self.__name = name
+        self.__name = channel_name
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
         self.__quantity = quantity
@@ -160,7 +183,7 @@ class SensorConditioner(object):
 
     def save(self):  # TODO deal with sensors sensor conditioner and channel
         """Save the sensor as a serialized object to a file """
-        f_name = cur_dir + '/sensor_' + self.name + '.ssr'
+        f_name = cur_dir / 'sensor_' + self.name + '.ssr'
         if Path(f_name).exists():
             logging.warning('Sensor file ' + f_name + ' already exists, unable to save sensor')
         else:
@@ -170,24 +193,25 @@ class SensorConditioner(object):
 
 class FMSensorConditioner(SensorConditioner):
     """A subclass of the Sensor object with a simpler interface"""
-    def __init__(self, name='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
+    def __init__(self, channel_name='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
                  quantity='freq.', units='Hz'):
-        SensorConditioner.__init__(name=name, processing_method=processing_method,
-                       processing_parameters=processing_parameters, quantity=quantity, units=units)
+        SensorConditioner.__init__(channel_name=channel_name, processing_method=processing_method,
+                                   processing_parameters=processing_parameters, quantity=quantity, units=units)
 
 
 class UncalibratedFMSensorConditioner(FMSensorConditioner):
     """A subclass of the FMsensor object with a simpler interface"""
-    def __init__(self, name='0000', log_output=True):
-        FMSensorConditioner.__init__(name=name, log_output=log_output)
+    def __init__(self, channel_name='0000', log_output=True):
+        FMSensorConditioner.__init__(channel_name=channel_name, log_output=log_output)
 
 
 class W1TempSensorConditioner(SensorConditioner):
-    def __init__(self, sensor, name, processing_method=no_processing, processing_parameters=None):
-        SensorConditioner.__init__(self, sensor=sensor, name=name, processing_method=processing_method,
-                                   processing_parameters=processing_parameters)
+    def __init__(self, sensor, channel_name, processing_method=no_processing, processing_parameters=None):
+        SensorConditioner.__init__(self, sensor=sensor, channel_name=channel_name, processing_method=processing_method,
+                                   processing_parameters=processing_parameters, log_output=True)
         self.quantity = 'temp.'
         self.units = '°C'
+        self.output_format = '%6.3f'
 
 
 def generate_w1temp_sensors(nb_sensor=2):
@@ -206,7 +230,7 @@ def generate_w1temp_sensors_conditioners(nb_sensor=2, sensors=None):
         nb_sensor = len(sensors)
     sensors_conditioners = {}
     for i in range(nb_sensor):
-        s = W1TempSensorConditioner(sensor=sensors[i], name='T%03d' % i)
+        s = W1TempSensorConditioner(sensor=sensors[i], channel_name='T%03d' % i)
         sensors_conditioners.update({'%s%s' % (sensors[i].slave_prefix, sensors[i].id): s})
     return sensors_conditioners
 
