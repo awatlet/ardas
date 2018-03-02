@@ -71,7 +71,7 @@ def polynomial(value, coefs):
     return result
 
 
-def running_average(n):
+def running_average(n):  # TODO: add self ?
     """Compute a running average (not centered)
 
     :param n: number of former samples used to compute the running average
@@ -92,14 +92,21 @@ def running_average(n):
             average = np.nan
 
 
-def no_processing(value, params=None):
+def no_processing(self, sample, params=None):
     """Simple copy of the value
 
-    :param value: value from sensor
+    :param self: calling object
+    :param sample: value from sensor
     :param params: None
     :return: same value
     """
-    return value
+
+    assert (type(sample) is dict), 'sample should be a dict'
+    sample['fields']['format'] = self.output_format
+    sample['fields']['units'] = self.units
+    sample['fields']['quantity'] = self.quantity
+    sample['tags']['processing'] = 'no processing'
+    return sample
 
 
 class SensorConditioner(object):
@@ -108,7 +115,7 @@ class SensorConditioner(object):
     def __init__(self, sensor=None, channel_name='', processing_method=None, processing_parameters=None,
                  quantity='', units='', output_format='%11.4f', log_output=True):
         self.sensor = sensor
-        self.__name = channel_name
+        self.__channel_name = channel_name
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
         self.__quantity = quantity
@@ -117,14 +124,14 @@ class SensorConditioner(object):
         self.__log = log_output
 
     @property
-    def name(self):
+    def channel_name(self):
         """Gets and sets sensor name
         """
-        return self.__name
+        return self.__channel_name
 
-    @name.setter
-    def name(self, val):
-        self.__name = str(val)
+    @channel_name.setter
+    def channel_name(self, val):
+        self.__channel_name = str(val)
 
     @property
     def quantity(self):
@@ -156,14 +163,16 @@ class SensorConditioner(object):
     def output_format(self, val):
         self.__output_format = val
 
-    def output(self, value):
+    def output(self, sample):
         """Outputs an output computed using the processing method and parameters
+
+        input sample should be in the form {time: value}
 
         :return: processed quantity
         :rtype: float
         """
 
-        output = self.processing_method(value, self.processing_parameters)
+        output = self.processing_method(self, sample, self.processing_parameters)
         return output
 
     def output_repr(self, value):

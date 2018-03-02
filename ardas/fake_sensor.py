@@ -52,6 +52,7 @@ class Fake1WireSensor(object):
             with open(f_name, 'wb') as sensor_file:
                 dump(self, sensor_file)
 
+
 class FakeTempSensor(Fake1WireSensor):
     """Fake 1-Wire temperature sensor default is DS18B20"""
     def __init__(self, name=None):
