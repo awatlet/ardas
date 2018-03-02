@@ -153,15 +153,15 @@ class SamplesConditioner(object):
 
 
 class FMSensorSamplesConditioner(SamplesConditioner):
-    """A subclass of the Sensor object with a simpler interface"""
+    """A subclass of the SamplesConditioner object with a simpler interface"""
     def __init__(self, channel_name='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
                  quantity='freq.', units='Hz'):
         SamplesConditioner.__init__(channel_name=channel_name, processing_method=processing_method,
                                     processing_parameters=processing_parameters, quantity=quantity, units=units)
 
 
-class UncalibratedFMSensorConditioner(FMSensorSamplesConditioner):
-    """A subclass of the FMsensor object with a simpler interface"""
+class UncalibratedFMSensorSamplesConditioner(FMSensorSamplesConditioner):
+    """A subclass of the FMSensorSamplesConditioner object with a simpler interface for raw output"""
     def __init__(self, channel_name='0000', log_output=True):
         FMSensorSamplesConditioner.__init__(channel_name=channel_name, log_output=log_output)
 

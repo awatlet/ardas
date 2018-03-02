@@ -27,12 +27,13 @@ def pause_until(next):
 
 
 class Sampler(Thread):
-    def __init__(self, stop_event, interval, sensors, sample_queue=None):
+    def __init__(self, stop_event, interval, sensors, sample_queue, msg_logger=None):
         Thread.__init__(self)
         self.stop_event = stop_event
         self.__sample_interval = interval
         self.sensors = sensors
         self.sample_queue = sample_queue
+        self.msg_logger = msg_logger
 
     @property
     def sample_interval(self):

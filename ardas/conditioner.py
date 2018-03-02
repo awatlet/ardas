@@ -7,12 +7,13 @@ import queue
 
 
 class Conditioner(Thread):
-    def __init__(self, stop_event, samples_conditioners, sample_queue, record_queue):
+    def __init__(self, stop_event, samples_conditioners, sample_queue, record_queue, msg_logger=None):
         Thread.__init__(self)
         self.stop_event = stop_event
         self.__samples_conditioners = samples_conditioners
         self.sample_queue = sample_queue
         self.record_queue = record_queue
+        self.msg_logger = msg_logger
 
     @property
     def samples_conditioners(self):
@@ -31,9 +32,10 @@ class Conditioner(Thread):
                 if sample is not None:
                     s_id = sample['tags']['sensor']
                     sc = self.samples_conditioners[s_id]
-                    data = sc.output(sample)
-                    data['tags']['channel'] = '%s' % sc.channel_name
-                    self.record_queue.put(data)
+                    record = sc.output(sample)
+                    if record is not None:
+                        record['tags']['channel'] = '%s' % sc.channel_name
+                        self.record_queue.put(record)
             except queue.Empty:
                 pass
 

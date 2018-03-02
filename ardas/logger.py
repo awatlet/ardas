@@ -8,12 +8,19 @@ import queue
 
 
 class Logger(Thread):
-    def __init__(self, stop_event, records_loggers, record_queue, loggers=None):
+    def __init__(self, stop_event, records_loggers, record_queue, msg_logger=None):
+        """ Logger constructor
+
+        :param stop_event: event that stops the logger
+        :param records_loggers: {channel_name: records_logger, ...}
+        :param record_queue: queue where to read records
+        :param msg_logger: message logger for execution trace or debug
+        """
         Thread.__init__(self)
         self.stop_event = stop_event
         self.__records_loggers = records_loggers
-        self.logger_queue = record_queue
-        self.loggers = loggers
+        self.record_queue = record_queue
+        self.msg_logger = msg_logger
 
     @property
     def records_loggers(self):
@@ -28,7 +35,7 @@ class Logger(Thread):
     def run(self):
         while not self.stop_event.isSet():
             try:
-                record = self.logger_queue.get(timeout=1.0)
+                record = self.record_queue.get(timeout=1.0)
                 if record is not None:
                     print(record)
                     ch_id = record['tags']['channel']
