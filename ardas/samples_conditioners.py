@@ -73,7 +73,7 @@ class SamplesConditioner(object):
         self.__quantity = quantity
         self.__units = units
         self.__output_format = output_format
-        self.__log = log_output
+        self.__log = log_output  # TODO: keep this here?
 
     @property
     def channel_name(self):
@@ -116,12 +116,12 @@ class SamplesConditioner(object):
         self.__output_format = val
 
     def output(self, sample):
-        """Outputs an output computed using the processing method and parameters
+        """Outputs an record computed using the processing method and parameters
 
-        input sample should be in the form {time: value}
+        input sample should be in the form of a sample dict
 
-        :return: processed quantity
-        :rtype: float
+        :return: record
+        :rtype: dict
         """
 
         output = self.processing_method(self, sample, self.processing_parameters)

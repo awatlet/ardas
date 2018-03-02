@@ -8,22 +8,22 @@ import queue
 
 
 class Logger(Thread):
-    def __init__(self, stop_event, channels_loggers, logger_queue, loggers=None):
+    def __init__(self, stop_event, records_loggers, record_queue, loggers=None):
         Thread.__init__(self)
         self.stop_event = stop_event
-        self.__channels_loggers = channels_loggers
-        self.logger_queue = logger_queue
+        self.__records_loggers = records_loggers
+        self.logger_queue = record_queue
         self.loggers = loggers
 
     @property
-    def channels_loggers(self):
+    def records_loggers(self):
         """ Gets and sets channels loggers
         """
-        return self.__channels_loggers
+        return self.__records_loggers
 
-    @channels_loggers.setter
-    def channels_loggers(self, val):
-        self.__channels_loggers = val
+    @records_loggers.setter
+    def records_loggers(self, val):
+        self.__records_loggers = val
 
     def run(self):
         while not self.stop_event.isSet():
@@ -32,27 +32,27 @@ class Logger(Thread):
                 if record is not None:
                     print(record)
                     ch_id = record['tags']['channel']
-                    cl = self.channels_loggers[ch_id]
+                    cl = self.records_loggers[ch_id]
                     cl.log()
             except queue.Empty:
                 pass
 
 
 if __name__ == '__main__':
-    sampler_queue = queue.Queue()
-    logger_queue = queue.Queue()
+    sample_queue = queue.Queue()
+    record_queue = queue.Queue()
     try:
         s = TempSensor()
         sensors = s.get_available_sensors()
     except:
         sensors = generate_w1temp_sensors(7)
     stop = Event()
-    sampler = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=sampler_queue)
-    sensors_conditioners = generate_w1temp_sensor_samples_conditioners(sensors=sensors)
-    channels_loggers = None
-    conditioner = Conditioner(stop_event=stop, samples_conditioners=sensors_conditioners, sampler_queue=sampler_queue,
-                              logger_queue=logger_queue)
-    logger = Logger(stop_event=stop, channels_loggers=channels_loggers, logger_queue=logger_queue)
+    sampler = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sample_queue=sample_queue)
+    samples_conditioners = generate_w1temp_sensor_samples_conditioners(sensors=sensors)
+    records_loggers = None
+    conditioner = Conditioner(stop_event=stop, samples_conditioners=samples_conditioners, sample_queue=sample_queue,
+                              record_queue=record_queue)
+    logger = Logger(stop_event=stop, records_loggers=records_loggers, record_queue=record_queue)
     sampler.start()
     conditioner.start()
     logger.start()
@@ -67,6 +67,6 @@ if __name__ == '__main__':
     empty_queue = False
     while not empty_queue:
         try:
-            print(logger_queue.get(timeout=0.1))
+            print(record_queue.get(timeout=0.1))
         except queue.Empty:
             empty_queue = True

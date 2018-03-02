@@ -27,22 +27,22 @@ def pause_until(next):
 
 
 class Sampler(Thread):
-    def __init__(self, stop_event, interval, sensors, sampler_queue=None):
+    def __init__(self, stop_event, interval, sensors, sample_queue=None):
         Thread.__init__(self)
         self.stop_event = stop_event
-        self.__measure_interval = interval
+        self.__sample_interval = interval
         self.sensors = sensors
-        self.queue = sampler_queue
+        self.sample_queue = sample_queue
 
     @property
-    def measure_interval(self):
+    def sample_interval(self):
         """ Gets measure_interval
         """
-        return self.__measure_interval
+        return self.__sample_interval
 
-    @measure_interval.setter
-    def measure_interval(self, val):
-        self.__measure_interval = val
+    @sample_interval.setter
+    def sample_interval(self, val):
+        self.__sample_interval = val
 
     def run(self):
         while not self.stop_event.isSet():
@@ -69,27 +69,27 @@ class W1Sampler(Sampler, TempSensor):
                 sample_before[i.id] = sample_after[i.id]
                 data = {'tags': {'sensor': '%s%s' % (i.slave_prefix, i.id)},
                         'time': datetime.datetime.fromtimestamp(sample[i.id][0]).strftime('%Y-%m-%d %H:%M:%S %Z'),
-                        'fields': {'value': sample[i.id][1]}}
-                self.queue.put(data)
-            next_sample_time = next_sample_time + self.measure_interval
+                        'fields': {'value': sample[i.id][1], 'sample interval': self.sample_interval}}
+                self.sample_queue.put(data)
+            next_sample_time = next_sample_time + self.sample_interval
             pause_until(next_sample_time)
 
 
 if __name__ == '__main__':
-    sampler_queue = queue.Queue()
+    sample_queue = queue.Queue()
     try:
         s = TempSensor()
         sensors = s.get_available_sensors()
     except:
         sensors = generate_w1temp_sensors(7)
     stop = Event()
-    s = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sampler_queue=sampler_queue)
+    s = W1Sampler(stop_event=stop, interval=5, sensors=sensors, sample_queue=sample_queue)
     s.start()
     k = 0
     kmax = 20
     while k < kmax:
         try:
-            print(sampler_queue.get(timeout=1.0))
+            print(sample_queue.get(timeout=1.0))
         except queue.Empty:
             pass
         k += 1
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     empty_queue = False
     while not empty_queue:
         try:
-            print(sampler_queue.get(timeout=1.0))
+            print(sample_queue.get(timeout=1.0))
         except queue.Empty:
             empty_queue = True
 
