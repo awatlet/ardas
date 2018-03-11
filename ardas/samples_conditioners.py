@@ -34,10 +34,10 @@ def running_average(n):  # TODO: add self ?, refactor to deal with samples and n
     samples_list = []
     average = None
     while True:
-        new_elt = yield average
+        new_sample = yield average
         if len(samples_list) == n:
             del samples_list[0]
-        samples_list.append(new_elt)
+        samples_list.append(new_sample)
         if len(samples_list) > 0:
             average = sum(samples_list) / len(samples_list)
         else:
@@ -64,7 +64,7 @@ def no_processing(self, sample, params=None):
 class SamplesConditioner(object):
     """ A class to handle sensors
     """
-    def __init__(self, sensor=None, channel_name='', processing_method=None, processing_parameters=None,
+    def __init__(self, sensor=None, channel_name='', processing_method=no_processing, processing_parameters=None,
                  quantity='', units='', output_format='%11.4f', log_output=True):
         self.sensor = sensor
         self.__channel_name = channel_name
