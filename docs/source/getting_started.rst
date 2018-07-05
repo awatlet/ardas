@@ -23,7 +23,7 @@ Edit the **settings_example.py** file according to your configuration and rename
 
 See the `settings list parameters <settings.html>`_ for more information.
 
-Create your sensors
+Create your sensors, you can use the script **frequency_sensor_generator.py** to generate 4 frequency sensors.
 
 See the `sensors <sensors.html>`_ for more information.
 
