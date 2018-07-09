@@ -28,3 +28,13 @@ Create your sensors, you can use the script **frequency_sensor_generator.py** to
 See the `sensors <sensors.html>`_ for more information.
 
 Don't forget: for using ardas tty, the user must be in **dialout** group !
+
+Stop the process correctly::
+
+    telnet REMOTE_IP REMOTE_PORT
+
+then::
+
+    #KL
+
+Don't forget to replace REMOTE_PORT by your local_port set in your settings file
