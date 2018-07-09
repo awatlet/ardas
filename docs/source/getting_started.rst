@@ -38,6 +38,13 @@ See the `sensors <sensors.html>`_ for more information.
 
 Don't forget: for using ardas tty, the user must be in **dialout** group !
 
+Prepare the arduino
+-------------------
+
+see `how to build arduino sketch <build_arduino_sketch.html>`_
+
+Don't forget to set it in raspardas_mode (#RD)or with arduino_reset sketch.
+
 Start the process
 -----------------
 ::
