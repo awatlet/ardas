@@ -1,6 +1,12 @@
 Getting started
 ===============
 
+Deployment
+----------
+
+Use `ardas-tools <https://github.com/UMONS-GFA/ardas-tools>`_ scripts for easy deployment
+
+Or deploy manually
 
 Get the code::
 
@@ -19,6 +25,9 @@ To fix this::
     sudo apt install libatlas-base-dev
 
 
+Configure your settings
+-----------------------
+
 Edit the **settings_example.py** file according to your configuration and rename it settings.py.
 
 See the `settings list parameters <settings.html>`_ for more information.
@@ -29,6 +38,15 @@ See the `sensors <sensors.html>`_ for more information.
 
 Don't forget: for using ardas tty, the user must be in **dialout** group !
 
+Start the process
+-----------------
+::
+
+    python3 raspardas.py
+
+Stop the process
+----------------
+
 Stop the process correctly::
 
     telnet REMOTE_IP REMOTE_PORT
@@ -37,4 +55,4 @@ then::
 
     #KL
 
-Don't forget to replace REMOTE_PORT by your local_port set in your settings file
+Don't forget to replace *REMOTE_PORT* by your local_port set in your settings file
