@@ -156,7 +156,7 @@ class FMSensorSamplesConditioner(SamplesConditioner):
     """A subclass of the SamplesConditioner object with a simpler interface"""
     def __init__(self, channel_name='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
                  quantity='freq.', units='Hz'):
-        SamplesConditioner.__init__(channel_name=channel_name, processing_method=processing_method,
+        SamplesConditioner.__init__(self, channel_name=channel_name, processing_method=processing_method,
                                     processing_parameters=processing_parameters, quantity=quantity, units=units)
 
 
