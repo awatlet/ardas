@@ -1,6 +1,5 @@
 import numpy as np
 import os
-from pathlib import Path
 from pickle import dump, load
 import logging
 
@@ -50,7 +49,7 @@ def load_sensor(sensor_id):
     :param sensor_id: a unique identification number of the sensor
     :return: a sensor object
     :rtype: sensor"""
-    f_name = cur_dir + '/sensor_' + sensor_id + '.ssr'
+    f_name = os.path.join(cur_dir,'sensor_' + sensor_id + '.ssr')
     with open(f_name, 'rb') as sensor_file:
         sensor = load(sensor_file)
     return sensor
@@ -115,7 +114,7 @@ class FMSensor(object):
     def save(self):
         """Save the sensor as a serialized object to a file """
         f_name = cur_dir + '/sensor_' + self.sensor_id + '.ssr'
-        if Path(f_name).exists():
+        if os.path.isfile(f_name):
             logging.warning('Sensor file ' + f_name + ' already exists, unable to save sensor')
         else:
             with open(f_name, 'wb') as sensor_file:
