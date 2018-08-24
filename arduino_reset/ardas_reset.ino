@@ -465,7 +465,7 @@ void setup()
 {
     Serial.begin(57600);
     Serial.flush();
-    s = "#ZR 0014 014 0015 4 1401 1402 1403 1404 31\r";
+    s = "#ZR 0001 255 0001 4 0000 0000 0000 0000 31\r";
     reconfig(s);
     set_raspardas_mode(true);
 }
