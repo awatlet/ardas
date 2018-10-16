@@ -12,8 +12,9 @@ DATABASE = {
 
 # ArDAS configuration
 ARDAS_CONFIG = {
-    'station': '',  # 4 characters
-    'net_id': '',   # 3 characters
+    'station': '0001',  # 4 characters
+    'net_id': '255',   # 3 characters
+    'shield_id': '', # 3 characters
     'integration_period': '0001', # 4 characters convertible to int
     'tty': '/dev/ttyACM0',
     'raw_data_on_disk': False  # to implement in raspardas

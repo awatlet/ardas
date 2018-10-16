@@ -167,7 +167,8 @@ def init_logging():
             except Exception as e:
                 msg_logger.error('Unable to read restart_msg.txt: %s' % e)
             influxdb_log_event(influxdb_client=client, title=title,
-                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'start',
+                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id']  + ',' + 'start',
                                event_args=text, msg_logger=msg_logger)
         except Exception as e:
             msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
@@ -293,7 +294,8 @@ def process_record(record):
             for i in range(n_channels):
                 if sensors[i].log:
                     data.append({'measurement': DATABASE['series'],
-                                 'tags': {'sensor': '%s-%04d' % (ARDAS_CONFIG['net_id'], instr[i])},
+                                 'tags': {'sensor': '%s-%04d' % (ARDAS_CONFIG['net_id'], instr[i]),
+                                          'shield_id': '%s' % (ARDAS_CONFIG['shield_id'])},
                                  'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                  'fields': {'value': val[i]}})
             msg_logger.debug('Writing to InfluxDB : %s' % str(data))
@@ -355,7 +357,8 @@ def connect_master():
                 title = 'Connection by user'
                 event_args = 'addr: ' + str(addr)
                 influxdb_log_event(influxdb_client=client, title=title,
-                                   default_tags=ARDAS_CONFIG['net_id'] + ',' + 'connection',
+                                   default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'connection',
                                    event_args=event_args, msg_logger=msg_logger)
                 master_online = True
         except Exception as e:
@@ -409,7 +412,8 @@ def listen_master():
                                 event_args = msg[4:-1].decode('utf-8')
                             msg_logger.info('%s: %s' %(title, event_args))
                             influxdb_log_event(influxdb_client=client, title=title,
-                                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'resume',
+                                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'resume',
                                                event_args=event_args, msg_logger=msg_logger)
                         else:
                             title = 'Paused by user'
@@ -417,7 +421,8 @@ def listen_master():
                                 event_args = msg[4:-1].decode('utf-8')
                             msg_logger.info('%s: %s' % (title, event_args))
                             influxdb_log_event(influxdb_client=client, title=title,
-                                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'pause',
+                                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'pause',
                                                event_args=event_args, msg_logger=msg_logger)
                         pause = not pause
                     elif msg[:-1] == b'#RC':
@@ -432,7 +437,8 @@ def listen_master():
                             event_args = msg[4:-1].decode('utf-8')
                         msg_logger.info('%s: %s' % (title, event_args))
                         influxdb_log_event(influxdb_client=client, title=title,
-                                           default_tags=ARDAS_CONFIG['net_id'] + ',' + 'stop',
+                                           default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'stop',
                                            event_args=event_args, msg_logger=msg_logger)
                         stop = True
                     elif msg[:3] == b'#MS':
@@ -441,7 +447,8 @@ def listen_master():
                             event_args = msg[4:-1].decode('utf-8')
                         msg_logger.info('%s: %s' % (title, event_args))
                         influxdb_log_event(influxdb_client=client, title=title,
-                                           default_tags=ARDAS_CONFIG['net_id'] + ',' + 'message',
+                                           default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'message',
                                            event_args=event_args, msg_logger=msg_logger)
                     elif msg[:3] == b'#QT':
                         title = 'Connection ended by user'
@@ -449,7 +456,8 @@ def listen_master():
                             event_args = msg[4:-1].decode('utf-8')
                         msg_logger.info('%s: %s' % (title, event_args))
                         influxdb_log_event(influxdb_client=client, title=title,
-                                           default_tags=ARDAS_CONFIG['net_id'] + ',' + 'end connection',
+                                           default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'end connection',
                                            event_args=event_args, msg_logger=msg_logger)
                         master_online = False
                     else:
@@ -632,7 +640,8 @@ if __name__ == '__main__':
             integration_period = ARDAS_CONFIG['integration_period']
             pause = True
             influxdb_log_event(influxdb_client=client, title='Pause logging',
-                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'pause',
+                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'pause',
                                event_args='reconfiguration started', msg_logger=msg_logger)
             slave_talker = Thread(target=talk_slave)
             slave_talker.setDaemon(True)
@@ -655,7 +664,8 @@ if __name__ == '__main__':
             master_listener.setDaemon(True)
             master_listener.start()
             influxdb_log_event(influxdb_client=client, title='Resume logging',
-                               default_tags=ARDAS_CONFIG['net_id'] + ',' + 'resume',
+                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'resume',
                                event_args='reconfiguration complete', msg_logger=msg_logger)
             pause = False
             msg_logger.info('*** Starting logging... ***')
