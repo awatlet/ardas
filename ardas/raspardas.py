@@ -556,7 +556,10 @@ def start_sequence():
                     msg_logger.debug('start_sequence : No proper reply received yet...')
             sleep(0.25)
             k -= 1
-
+        if not reply:
+            msg_logger.info('start_sequence : calling ardas {0} without response yet. Please check that your net_id '
+                            'parameter in your settings file corresponds to EEPROM ned_id !'
+                            .format(ARDAS_CONFIG['net_id']))
     reply = False
     while not reply:
         msg = b'#ZR '
