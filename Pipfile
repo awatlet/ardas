@@ -11,6 +11,7 @@ pyserial = "==3.4"
 influxdb = "==5.0.0"
 ntplib = "==0.3.3"
 numpy = "==1.14.0"
+requests = "==2.20.0"
 
 
 [dev-packages]
