@@ -168,7 +168,7 @@ def init_logging():
                 msg_logger.error('Unable to read restart_msg.txt: %s' % e)
             influxdb_log_event(influxdb_client=client, title=title,
                                default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
-                                            ARDAS_CONFIG['shield_id']  + ',' + 'start',
+                                            ARDAS_CONFIG['shield_id'] + ',' + 'start',
                                event_args=text, msg_logger=msg_logger)
         except Exception as e:
             msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
@@ -413,7 +413,7 @@ def listen_master():
                             msg_logger.info('%s: %s' %(title, event_args))
                             influxdb_log_event(influxdb_client=client, title=title,
                                                default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
-                                            ARDAS_CONFIG['shield_id'] + ',' + 'resume',
+                                                            ARDAS_CONFIG['shield_id'] + ',' + 'resume',
                                                event_args=event_args, msg_logger=msg_logger)
                         else:
                             title = 'Paused by user'
@@ -506,35 +506,49 @@ def talk_master():
 
 
 def start_sequence():
-    global master_queue, slave_queue, n_channels, msg_logger, starting
+    global master_queue, slave_queue, n_channels, msg_logger, starting, stop
 
     msg_logger.debug('Initiating start sequence...')
     msg_logger.debug('____________________________')
     msg_logger.debug('start_sequence : Wake up slave...')
-    if debug:
-        reply = False
-        while not reply:
-            msg = b'-999\r\n'  # FIX: Should be \r
-            master_queue.put(msg)
-            msg_logger.debug('start_sequence : Calling all ArDAS')
-            k = 10
-            sleep(0.75)
-            while k > 0 and not reply:
-                try:
-                    msg = slave_queue.get(timeout=0.25)
-                    msg_logger.debug('received reply: %s' %msg.decode('ascii', errors='ignore'))
-                    if msg != b'':
-                        if b'Hey!' in msg:
-                            msg_logger.debug('start_sequence : Reply received!')
-                            reply = True
+    reply = False
+    greeting = b"Hey! I'm ArdDAS"
+    while not reply:
+        msg = b'-999\r\n'  # FIX: Should be \r
+        master_queue.put(msg)
+        msg_logger.debug('start_sequence : Calling all ArDAS')
+        k = 10
+        sleep(0.75)
+        msg = b''
+        while k > 0 and not reply:
+            try:
+                msg += slave_queue.get(timeout=0.5)
+                msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
+                if msg != b'':
+                    if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
+                        greeting_start = msg.find(greeting)
+                        net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
+                                                                                                 errors='ignore')
+                        if net_id_from_eeprom == ARDAS_CONFIG['net_id']:
+                            msg_logger.debug('start_sequence : Reply received from {}'.format(net_id_from_eeprom))
                         else:
-                            msg_logger.debug('start_sequence : No proper reply received yet...')
+                            msg_logger.error('start_sequence : net_id mismatch between settings {0} and '
+                                               'EEPROM {1}'.format(ARDAS_CONFIG['net_id'], net_id_from_eeprom))
+                            msg_logger.debug('Start sequence aborted...')
+                            msg_logger.debug('___________________________')
+                            stop = True
+                            return 1
+                        reply = True
+
                     else:
-                        msg_logger.debug('start_sequence : No message received yet...')
-                except queue.Empty:
-                    msg_logger.debug('start_sequence : Timed out...')
-                    sleep(0.25)
-                    k -= 1
+                        msg_logger.debug('start_sequence : No proper reply received yet...')
+                else:
+                    msg_logger.debug('start_sequence : No message received yet...')
+            except queue.Empty:
+                msg_logger.debug('start_sequence : Timed out...')
+                sleep(0.25)
+                k -= 1
+
     reply = False
     while not reply:
         msg = b'-' + bytes(ARDAS_CONFIG['net_id'].encode('ascii')) + b'\r\n'  # FIX: Should be \r
@@ -556,7 +570,10 @@ def start_sequence():
                     msg_logger.debug('start_sequence : No proper reply received yet...')
             sleep(0.25)
             k -= 1
-
+        if not reply:
+            msg_logger.info('start_sequence : calling ardas {0} without response yet. Please check that your net_id '
+                            'parameter in your settings file corresponds to EEPROM ned_id !'
+                            .format(ARDAS_CONFIG['net_id']))
     reply = False
     while not reply:
         msg = b'#ZR '
@@ -628,6 +645,7 @@ def start_sequence():
     msg_logger.debug('Start sequence completed...')
     msg_logger.debug('___________________________')
     starting = False
+    return 0
 
 
 if __name__ == '__main__':
@@ -651,33 +669,37 @@ if __name__ == '__main__':
             slave_listener.start()
 
             msg_logger.info('Configuring ArDAS...')
-            start_sequence()
-            msg_logger.info('ArDAS configured !')
+            status_start_sequence = start_sequence()
+            if status_start_sequence != 0:
+                msg_logger.info('Configuration aborted !')
+            else:
+                msg_logger.info('ArDAS configured !')
 
-            master_connector = Thread(target=connect_master)
-            master_connector.setDaemon(True)
-            master_connector.start()
-            master_talker = Thread(target=talk_master)
-            master_talker.setDaemon(True)
-            master_talker.start()
-            master_listener = Thread(target=listen_master)
-            master_listener.setDaemon(True)
-            master_listener.start()
-            influxdb_log_event(influxdb_client=client, title='Resume logging',
-                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
-                                            ARDAS_CONFIG['shield_id'] + ',' + 'resume',
-                               event_args='reconfiguration complete', msg_logger=msg_logger)
-            pause = False
-            msg_logger.info('*** Starting logging... ***')
+                master_connector = Thread(target=connect_master)
+                master_connector.setDaemon(True)
+                master_connector.start()
+                master_talker = Thread(target=talk_master)
+                master_talker.setDaemon(True)
+                master_talker.start()
+                master_listener = Thread(target=listen_master)
+                master_listener.setDaemon(True)
+                master_listener.start()
+                influxdb_log_event(influxdb_client=client, title='Resume logging',
+                                   default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                                ARDAS_CONFIG['shield_id'] + ',' + 'resume',
+                                   event_args='reconfiguration complete', msg_logger=msg_logger)
+                pause = False
+                msg_logger.info('*** Starting logging... ***')
 
             while not stop:
                 sleep(1)
 
             msg_logger.info('Exiting - Waiting for threads to end...')
             slave_listener.join()
-            master_talker.join()
-            master_listener.join()
-            master_connector.join()
+            if status_start_sequence == 0:
+                master_talker.join()
+                master_listener.join()
+                master_connector.join()
             slave_talker.join()
 
         finally:

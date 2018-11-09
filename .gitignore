@@ -1,4 +1,5 @@
 .idea
+Pipfile.lock
 ardas/*.ssr
 ardas/settings.py
 ardas/data/*
