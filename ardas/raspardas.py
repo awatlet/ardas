@@ -669,36 +669,37 @@ if __name__ == '__main__':
             slave_listener.start()
 
             msg_logger.info('Configuring ArDAS...')
-            status = start_sequence()
-            if status == 0:
-                msg_logger.info('ArDAS configured !')
-            else:
+            status_start_sequence = start_sequence()
+            if status_start_sequence != 0:
                 msg_logger.info('Configuration aborted !')
+            else:
+                msg_logger.info('ArDAS configured !')
 
-            master_connector = Thread(target=connect_master)
-            master_connector.setDaemon(True)
-            master_connector.start()
-            master_talker = Thread(target=talk_master)
-            master_talker.setDaemon(True)
-            master_talker.start()
-            master_listener = Thread(target=listen_master)
-            master_listener.setDaemon(True)
-            master_listener.start()
-            influxdb_log_event(influxdb_client=client, title='Resume logging',
-                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
-                                            ARDAS_CONFIG['shield_id'] + ',' + 'resume',
-                               event_args='reconfiguration complete', msg_logger=msg_logger)
-            pause = False
-            msg_logger.info('*** Starting logging... ***')
+                master_connector = Thread(target=connect_master)
+                master_connector.setDaemon(True)
+                master_connector.start()
+                master_talker = Thread(target=talk_master)
+                master_talker.setDaemon(True)
+                master_talker.start()
+                master_listener = Thread(target=listen_master)
+                master_listener.setDaemon(True)
+                master_listener.start()
+                influxdb_log_event(influxdb_client=client, title='Resume logging',
+                                   default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+                                                ARDAS_CONFIG['shield_id'] + ',' + 'resume',
+                                   event_args='reconfiguration complete', msg_logger=msg_logger)
+                pause = False
+                msg_logger.info('*** Starting logging... ***')
 
             while not stop:
                 sleep(1)
 
             msg_logger.info('Exiting - Waiting for threads to end...')
             slave_listener.join()
-            master_talker.join()
-            master_listener.join()
-            master_connector.join()
+            if status_start_sequence == 0:
+                master_talker.join()
+                master_listener.join()
+                master_connector.join()
             slave_talker.join()
 
         finally:
