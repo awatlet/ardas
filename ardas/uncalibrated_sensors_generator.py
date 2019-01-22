@@ -1,6 +1,6 @@
 from ardas import sensor_tools as st
 # Saves a set of sensors including its calibration in a binary '.ssr' file
-sensors = (st.FMSensor(sensor_id='0001', log_output=True),
+sensors = (st.UncalibratedFMSensor(sensor_id='0001', log_output=True),
            st.UncalibratedFMSensor(sensor_id='0002', log_output=True),
            st.UncalibratedFMSensor(sensor_id='0003', log_output=True),
            st.UncalibratedFMSensor(sensor_id='0004', log_output=True),
