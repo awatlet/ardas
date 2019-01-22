@@ -24,7 +24,7 @@
 #include <avr/pgmspace.h>
 
 #define PULSE_WIDTH_USEC 5
-#define READ_COUNTER_REGISTER_FREQ 2 // CHECK : should be 1 if SQW freq is 1 Hz
+#define READ_COUNTER_REGISTER_FREQ 4 // CHECK : should be 1 if SQW freq is 1 Hz
 #define CLOCK_FREQ 4096
 #define VERSION "Version ArDAS 1.0.1 [UMONS-GFA - 2016]"
 #define EOL '\r'
