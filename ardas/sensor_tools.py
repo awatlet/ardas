@@ -8,7 +8,7 @@ import time
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 GPIO.setmode(GPIO.BCM)
-
+GPIO.
 
 def polynomial(value, **kwargs):
     """Compute polynomial using Horner method
@@ -38,13 +38,13 @@ def running_average(x, **kwargs):
 
 
 def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
-    """ Activates a pin of the raspberry pi in output mode for the number of seconds sepcified in delay"""
+    """ Activates a pin of the raspberry pi in output mode for the number of seconds specified in delay"""
     if pin in safe_pins:
         GPIO.setup(pin, GPIO.OUT)
-        GPIO.output(pin, GPIO.HIGH)
+        GPIO.output(pin, True)
         logging.info('Activating ' + str(pin) + ' for ' + str(delay) + ' seconds.')
         time.sleep(delay)
-        GPIO.output(pin, GPIO.LOW)
+        GPIO.output(pin, False)
         logging.info('Deactivating ' + str(pin) + '.')
     else:
         logging.warning('Pin number ' + str(pin) + ' is not in safe_pins. Skipped activating pin '+ str(pin) + '.')
