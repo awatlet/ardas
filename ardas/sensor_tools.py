@@ -41,7 +41,7 @@ def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
     """ Activates a pin of the raspberry pi in output mode for the number of seconds sepcified in delay"""
     if pin in safe_pins:
         GPIO.setup(pin, GPIO.OUT)
-        GPIO.output(GPIO.HIGH)
+        GPIO.output(pin, GPIO.HIGH)
         logging.info('Activating ' + pin + ' for ' + delay + ' seconds.')
         time.sleep(delay)
         GPIO.output(pin, GPIO.LOW)
@@ -50,7 +50,7 @@ def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
         logging.warning('Pin number ' + pin + ' is not in safe_pins. Skipped activation pin '+ pin + '.')
 
 
-def running_median(x, **kwagrs):
+def running_median(x, **kwargs):
     """Compute a running average (not centered)
 
     :param x: np.array of samples used to compute the running median
