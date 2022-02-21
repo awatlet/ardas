@@ -8,7 +8,6 @@ import time
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 GPIO.setmode(GPIO.BCM)
-GPIO.
 
 def polynomial(value, **kwargs):
     """Compute polynomial using Horner method
