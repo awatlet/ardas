@@ -8,6 +8,8 @@ import time
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
 
 def polynomial(value, **kwargs):
     """Compute polynomial using Horner method
@@ -68,7 +70,7 @@ def open_valve_if_full(x, **kwargs):
     safe_pins = kwargs.pop('safe_pins', (12))
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
     empty_dict = {}
-    if str(running_median(x, **empty_dict)) + condition:
+    if eval(str(running_median(x, **empty_dict)) + condition):
         activate_pin(pin, delay, safe_pins)
         status = 1
     return status
