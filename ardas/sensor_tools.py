@@ -63,14 +63,13 @@ def running_median(x, **kwargs):
 
 def open_valve_if_full(x, **kwargs):
     status = 0
-    threshold = kwargs.pop('threshold', 1600)
+    condition = kwargs.pop('condition', '==0.')
     pin = kwargs.pop('pin', 12)
     delay = kwargs.pop('delay', 30.)
     safe_pins = kwargs.pop('safe_pins', (12))
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
     empty_dict = {}
-    print(running_median(x, **empty_dict), threshold)
-    if running_median(x, **empty_dict) > threshold:
+    if str(running_median(x, **empty_dict)) + condition:
         activate_pin(pin, delay, safe_pins)
         status = 1
     return status
@@ -160,7 +159,6 @@ class FMSensor(object):
         if value is None:
             value = self.value
         try:
-            print('#### VALUE ####', value)
             s = self.output_format + ' ' + self.units
             calibrated_output = s % self.output(value)
         except Exception as e:
