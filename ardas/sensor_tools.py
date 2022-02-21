@@ -45,8 +45,7 @@ def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
         GPIO.output(pin, GPIO.HIGH)
         logging.info('Activating ' + str(pin) + ' for ' + str(delay) + ' seconds.')
         time.sleep(delay)
-        GPIO.output(pin, GPIO.LOW)
-        time.sleep(0.05)
+        GPIO.cleanup()
         logging.info('Deactivating ' + str(pin) + '.')
     else:
         logging.warning('Pin number ' + str(pin) + ' is not in safe_pins. Skipped activating pin '+ str(pin) + '.')
