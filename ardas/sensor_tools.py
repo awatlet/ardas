@@ -7,8 +7,6 @@ import RPi.GPIO as GPIO
 import time
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
 
 
 def polynomial(value, **kwargs):
@@ -41,6 +39,8 @@ def running_average(x, **kwargs):
 def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
     """ Activates a pin of the raspberry pi in output mode for the number of seconds specified in delay"""
     if pin in safe_pins:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
         GPIO.setup(pin, GPIO.OUT)
         GPIO.output(pin, GPIO.HIGH)
         logging.info('Activating ' + str(pin) + ' for ' + str(delay) + ' seconds.')
