@@ -18,11 +18,10 @@ def polynomial(value, coefs):
     :return: evaluation of polynomial for the given value of the variable
     :rtype: float
     """
-
     result = coefs[-1]
     for i in range(-2, -len(coefs) - 1, -1):
         result = result * value[-1] + coefs[i]
-    result=result[0]
+    result = result[0]
     assert isinstance(result, float)
     return result
 
@@ -135,7 +134,9 @@ class FMSensor(object):
         """
 
         if value is None:
-            value = self.value
+            value = self._value
+        else:
+            assert isinstance(np.array())
         output = self.processing_method(value, self.processing_parameters)
         return output
 
@@ -147,7 +148,7 @@ class FMSensor(object):
         """
 
         if value is None:
-            value = self.value[-1]
+            value = self.value
         try:
             s = self.output_format + ' ' + self.units
             calibrated_output = s % self.output(value)
