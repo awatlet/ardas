@@ -42,10 +42,11 @@ def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
     """ Activates a pin of the raspberry pi in output mode for the number of seconds specified in delay"""
     if pin in safe_pins:
         GPIO.setup(pin, GPIO.OUT)
-        GPIO.output(pin, True)
+        GPIO.output(pin, GPIO.HIGH)
         logging.info('Activating ' + str(pin) + ' for ' + str(delay) + ' seconds.')
         time.sleep(delay)
-        GPIO.output(pin, False)
+        GPIO.output(pin, GPIO.LOW)
+        time.sleep(0.05)
         logging.info('Deactivating ' + str(pin) + '.')
     else:
         logging.warning('Pin number ' + str(pin) + ' is not in safe_pins. Skipped activating pin '+ str(pin) + '.')
@@ -73,6 +74,7 @@ def open_valve_if_full(x, **kwargs):
     if eval(str(running_median(x, **empty_dict)) + condition):
         activate_pin(pin, delay, safe_pins)
         status = 1
+    else
     return status
 
 
