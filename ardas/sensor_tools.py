@@ -10,7 +10,7 @@ cur_dir = os.path.dirname(os.path.realpath(__file__))
 GPIO.setmode(GPIO.BCM)
 
 
-def polynomial(value, coefs):
+def polynomial(value, **kwargs):
     """Compute polynomial using Horner method
 
     :param value: given value of the variable
@@ -18,6 +18,7 @@ def polynomial(value, coefs):
     :return: evaluation of polynomial for the given value of the variable
     :rtype: float
     """
+    coefs = kwargs.pop('coefs', (1,0))
     result = coefs[-1]
     for i in range(-2, -len(coefs) - 1, -1):
         result = result * value[-1] + coefs[i]
@@ -26,7 +27,7 @@ def polynomial(value, coefs):
     return result
 
 
-def running_average(x, coefs):
+def running_average(x, **kwargs):
     """Compute a running average (not centered)
 
     :param x: np.array of samples used to compute the running average
@@ -50,7 +51,7 @@ def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
         logging.warning('Pin number ' + pin + ' is not in safe_pins. Skipped activation pin '+ pin + '.')
 
 
-def running_median(x, coefs):
+def running_median(x, **kwagrs):
     """Compute a running average (not centered)
 
     :param x: np.array of samples used to compute the running median
@@ -61,10 +62,14 @@ def running_median(x, coefs):
     return np.median(x)
 
 
-def open_valve_if_full(x, threshold=1600.,  pin=12, delay=30., safe_pins=(12)):
+def open_valve_if_full(x, **kwargs):
+    threshold = kwargs.pop('threshold', 1600)
+    pin = kwargs.pop('pin', 12)
+    delay = kwargs.pop('delay', 30.)
+    safe_pins = kwargs.pop('safe_pins', (12))
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
-    print(running_median(x, None), threshold)
-    if running_median(x, None) > threshold:
+    print(running_median(x, {}), threshold)
+    if running_median(x, {}) > threshold:
         activate_pin(pin, delay, safe_pins)
 
 
@@ -181,14 +186,14 @@ if __name__ == '__main__':
     #                       -1.72530800355418e-17])
     #print(t)
     #print(cur_dir)
-    # sensor = FMSensor(sensor_id='9999', processing_method=running_average, processing_parameters=None,
+    # sensor = FMSensor(sensor_id='9999', processing_method=running_average, processing_parameters={},
     #                   short_term_memory=3, log_output=False)
     # while True:
     #     reply = input('Please enter sensor value')
     #     sensor.value = float(reply)
     #     print(sensor.output())
     sensor = FMSensor(sensor_id='9999', processing_method=polynomial,
-                      processing_parameters=(-16.922, 0.0041525221, -1.314e-07, 2.391e-12, -1.725e-17),
+                      processing_parameters={'coefs':(-16.922, 0.0041525221, -1.314e-07, 2.391e-12, -1.725e-17)},
                       log_output=False)
     sensor.value = 25000.
     print(sensor.output())
