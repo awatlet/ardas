@@ -14,11 +14,10 @@ def polynomial(value, **kwargs):
     """Compute polynomial using Horner method
 
     :param value: given value of the variable
-    :param coefs: coefficients of the polynomial
     :return: evaluation of polynomial for the given value of the variable
     :rtype: float
     """
-    coefs = kwargs.pop('coefs', (1,0))
+    coefs = kwargs.pop('coefs', (1,0))  # coefficients of the polynomial
     result = coefs[-1]
     for i in range(-2, -len(coefs) - 1, -1):
         result = result * value[-1] + coefs[i]
@@ -86,7 +85,7 @@ def load_sensor(sensor_id):
 
 
 class FMSensor(object):
-    def __init__(self, sensor_id='0000', processing_method=polynomial, processing_parameters=(0., 1., 0., 0., 0.),
+    def __init__(self, sensor_id='0000', processing_method=polynomial, processing_parameters={'coefs': (0,1)},
                  quantity='freq.', units='Hz', output_format='%11.4f', short_term_memory=1, log_output=True):
         self.sensor_id = sensor_id
         self.processing_method = processing_method
@@ -143,7 +142,7 @@ class FMSensor(object):
             value = self.value
         else:
             assert isinstance(value, np.ndarray)
-        output = self.processing_method(value, self.processing_parameters)
+        output = self.processing_method(value, **self.processing_parameters)
         return output
 
     def output_repr(self, value=None):
