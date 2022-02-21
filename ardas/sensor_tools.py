@@ -62,6 +62,7 @@ def running_median(x, **kwargs):
 
 
 def open_valve_if_full(x, **kwargs):
+    status = 0
     threshold = kwargs.pop('threshold', 1600)
     pin = kwargs.pop('pin', 12)
     delay = kwargs.pop('delay', 30.)
@@ -71,6 +72,8 @@ def open_valve_if_full(x, **kwargs):
     print(running_median(x, **empty_dict), threshold)
     if running_median(x, **empty_dict) > threshold:
         activate_pin(pin, delay, safe_pins)
+        status = 1
+    return status
 
 
 def load_sensor(sensor_id):
