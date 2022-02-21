@@ -143,6 +143,7 @@ class FMSensor(object):
     def output_repr(self, value=None):
         """Gets a representation of the output
 
+        :param value: a numpy array of values
         :return: representation of the processed quantity
         :rtype: string
         """
