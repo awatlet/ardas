@@ -67,8 +67,9 @@ def open_valve_if_full(x, **kwargs):
     delay = kwargs.pop('delay', 30.)
     safe_pins = kwargs.pop('safe_pins', (12))
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
-    print(running_median(x, {}), threshold)
-    if running_median(x, {}) > threshold:
+    empty_dict = {}
+    print(running_median(x, **empty_dict), threshold)
+    if running_median(x, **empty_dict) > threshold:
         activate_pin(pin, delay, safe_pins)
 
 
