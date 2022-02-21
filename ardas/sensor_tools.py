@@ -63,6 +63,7 @@ def running_median(x, coefs):
 
 def open_valve_if_full(x, threshold=1600.,  pin=12, delay=30., safe_pins=(12)):
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
+    print(running_median(x, None))
     if running_median(x, None) > threshold:
         activate_pin(pin, delay, safe_pins)
 
