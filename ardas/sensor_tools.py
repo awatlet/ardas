@@ -74,7 +74,6 @@ def open_valve_if_full(x, **kwargs):
     if eval(str(running_median(x, **empty_dict)) + condition):
         activate_pin(pin, delay, safe_pins)
         status = 1
-    else
     return status
 
 
