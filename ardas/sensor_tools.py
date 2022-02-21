@@ -42,12 +42,12 @@ def activate_pin(pin, delay, safe_pins=(12, 6, 13, 16, 19, 20, 26, 21)):
     if pin in safe_pins:
         GPIO.setup(pin, GPIO.OUT)
         GPIO.output(pin, GPIO.HIGH)
-        logging.info('Activating ' + pin + ' for ' + delay + ' seconds.')
+        logging.info('Activating ' + str(pin) + ' for ' + str(delay) + ' seconds.')
         time.sleep(delay)
         GPIO.output(pin, GPIO.LOW)
-        logging.info('Deactivating ' + pin + '.')
+        logging.info('Deactivating ' + str(pin) + '.')
     else:
-        logging.warning('Pin number ' + pin + ' is not in safe_pins. Skipped activation pin '+ pin + '.')
+        logging.warning('Pin number ' + str(pin) + ' is not in safe_pins. Skipped activating pin '+ str(pin) + '.')
 
 
 def running_median(x, **kwargs):
