@@ -151,6 +151,7 @@ class FMSensor(object):
         if value is None:
             value = self.value
         try:
+            print('#### VALUE ####', value)
             s = self.output_format + ' ' + self.units
             calibrated_output = s % self.output(value)
         except Exception as e:
