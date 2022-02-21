@@ -7,7 +7,7 @@ import RPi.GPIO as GPIO
 import time
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
-GPIO.setmode(GPIO.bcm)
+GPIO.setmode(GPIO.BCM)
 
 
 def polynomial(value, coefs):
