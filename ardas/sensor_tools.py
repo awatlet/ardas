@@ -134,9 +134,9 @@ class FMSensor(object):
         """
 
         if value is None:
-            value = self._value
+            value = self.value
         else:
-            assert isinstance(np.array())
+            assert isinstance(value, np.array())
         output = self.processing_method(value, self.processing_parameters)
         return output
 
