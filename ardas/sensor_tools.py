@@ -70,7 +70,7 @@ def open_valve_if_full(x, **kwargs):
     safe_pins = kwargs.pop('safe_pins', (12))
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
     empty_dict = {}
-    cond = str('not (' + x[-2] + condition + ') and (' + x[-1] + condition + ')')
+    cond = 'not (' + str(x[-2]) + condition + ') and (' + str(x[-1]) + condition + ')')
     logging.debug('Condition: '+ cond)
     if eval(cond):
         activate_pin(pin, delay, safe_pins)
