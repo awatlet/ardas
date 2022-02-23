@@ -88,7 +88,7 @@ starting = True
 stop = False
 
 slave_queue = queue.Queue()  # what comes from ArDAS
-master_queue = queue.Queue()  # what comes from Master (e.g. cron task running client2.py)
+master_queue = queue.Queue()  # what comes from Master
 
 # Remaining initialization
 status = True
@@ -328,7 +328,7 @@ def talk_slave():
             slave_io.write(msg)
             msg_logger.debug('In waiting after: ' + str(slave_io.in_waiting))
             msg_logger.debug('Out waiting after: ' + str(slave_io.out_waiting))
-            slave_io.flush()  # NOTE: this line was commented as a test
+            # slave_io.flush()  # NOTE: this line was commented as a test
         except queue.Empty:
             msg_logger.debug('talk_slave : master_queue empty...')
         except serial.SerialTimeoutException:
@@ -525,10 +525,12 @@ def start_sequence():
             try:
                 msg_logger.debug('Slave queue approx. length:' + str(slave_queue.qsize()))
                 msg_logger.debug('Master queue approx. length:' + str(master_queue.qsize()))
-                msg += slave_queue.get(timeout=1.25)
+                incoming = slave_queue.get(timeout=1.25)
+                msg_logger.debug('incoming: %s' % incoming.decode('ascii', errors='ignore'))
+                msg += incoming
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
-                    msg_logger.debug("A")  # TODO: delete me
+                    msg_logger.debug('A')  # TODO: delete me
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
                         msg_logger.debug("B")  # TODO: delete me
                         greeting_start = msg.find(greeting)
