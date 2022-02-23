@@ -514,7 +514,7 @@ def start_sequence():
             sleep(0.75)
             while k > 0 and not reply:
                 try:
-                    msg_logger.debug('slave queue is empty ? ' + slave_queue.empty())
+                    msg_logger.debug('slave queue is empty ? ' + str(slave_queue.empty()))
                     msg = slave_queue.get(timeout=1.25)
                     msg_logger.debug('received reply: %s' %msg.decode('ascii', errors='ignore'))
                     if msg != b'':
