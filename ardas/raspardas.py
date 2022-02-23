@@ -515,6 +515,7 @@ def start_sequence():
         msg = b''
         while k > 0 and not reply:
             try:
+                print('Slave queue approx. length:', slave_queue.qsize())
                 msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
