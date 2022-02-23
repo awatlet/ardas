@@ -515,17 +515,17 @@ def start_sequence():
         msg = b''
         while k > 0 and not reply:
             try:
-                print('Slave queue approx. length:', slave_queue.qsize())
+                msg_logger.debug('Slave queue approx. length:', slave_queue.qsize())
                 msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
-                    print("A")
+                    msg_logger.debug("A")
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
-                        print("B")
+                        msg_logger.debug("B")
                         greeting_start = msg.find(greeting)
                         net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
                                                                                                  errors='ignore')
-                        print("C")
+                        msg_logger.debug("C")
                         if net_id_from_eeprom == ARDAS_CONFIG['net_id']:
                             msg_logger.debug('start_sequence : Reply received from {}'.format(net_id_from_eeprom))
                         else:
