@@ -267,7 +267,8 @@ def process_record(record):
             decoded_record += ' C'
             val = [0.] * n_channels
         for i in range(n_channels):
-            val[i] = sensors[i].output(freq[i])
+            sensors[i].value = freq[i]
+            val[i] = sensors[i].output()
             if raw_data:
                 decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
             else:
@@ -278,7 +279,7 @@ def process_record(record):
             cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
             for i in range(n_channels):
                 sens_out = '| %04d: ' % instr[i]
-                sens_out += sensors[i].output_repr(freq[i])
+                sens_out += sensors[i].output_repr()  # TODO : Add no eval to avoid running processing twice
                 sens_out += ' '
                 cal_record += sens_out
             cal_record += '|'
@@ -316,7 +317,7 @@ def talk_slave():
     msg_logger.debug('Initiating talk_slave thread...')
     while not stop:
         try:
-            msg = master_queue.get(timeout=1)
+            msg = master_queue.get(timeout=1.)
             try:
                 msg_logger.debug('Saying to slave : ' + msg.decode('ascii')[:-1])
             except Exception as e:
@@ -518,17 +519,21 @@ def start_sequence():
         master_queue.put(msg)
         msg_logger.debug('start_sequence : Calling all ArDAS')
         k = 10
-        sleep(0.75)
+        sleep(2.0)
         msg = b''
         while k > 0 and not reply:
             try:
-                msg += slave_queue.get(timeout=0.5)
+                msg_logger.debug('Slave queue approx. length:', slave_queue.qsize())
+                msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
+                    msg_logger.debug("A")  # TODO: delete me
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
+                        msg_logger.debug("B")  # TODO: delete me
                         greeting_start = msg.find(greeting)
                         net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
                                                                                                  errors='ignore')
+                        msg_logger.debug("C")  # TODO: delete me
                         if net_id_from_eeprom == ARDAS_CONFIG['net_id']:
                             msg_logger.debug('start_sequence : Reply received from {}'.format(net_id_from_eeprom))
                         else:
