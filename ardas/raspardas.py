@@ -326,11 +326,11 @@ def talk_slave():
             # msg_logger.debug('Out waiting: ' + str(slave_io.out_waiting))
             msg_logger.debug('writing to slave...')
             slave_io.write(msg)
-            # msg_logger.debug('In waiting after: ' + str(slave_io.in_waiting))
-            # msg_logger.debug('Out waiting after: ' + str(slave_io.out_waiting))
-            # slave_io.flush()  # NOTE: this line was commented as a test
+            msg_logger.debug('In waiting after: ' + str(slave_io.in_waiting))
+            msg_logger.debug('Out waiting after: ' + str(slave_io.out_waiting))
+            slave_io.flush()  # NOTE: this line was commented as a test
         except queue.Empty:
-            pass
+            msg_logger.debug('talk_slave : master_queue empty...')
         except serial.SerialTimeoutException:
             msg_logger.error('*** Could not talk to slave...')
         except Exception as err:
