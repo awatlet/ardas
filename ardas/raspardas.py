@@ -315,7 +315,7 @@ def talk_slave():
     msg_logger.debug('Initiating talk_slave thread...')
     while not stop:
         try:
-            msg = master_queue.get(timeout=1)
+            msg = master_queue.get(timeout=1.)
             try:
                 msg_logger.debug('Saying to slave : ' + msg.decode('ascii')[:-1])
             except Exception as e:
@@ -518,10 +518,13 @@ def start_sequence():
                 msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
+                    print("A")
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
+                        print("B")
                         greeting_start = msg.find(greeting)
                         net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
                                                                                                  errors='ignore')
+                        print("C")
                         if net_id_from_eeprom == ARDAS_CONFIG['net_id']:
                             msg_logger.debug('start_sequence : Reply received from {}'.format(net_id_from_eeprom))
                         else:
