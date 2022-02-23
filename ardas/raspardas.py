@@ -519,13 +519,13 @@ def start_sequence():
                 msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
-                    msg_logger.debug("A")
+                    msg_logger.debug("A")  # TODO: delete me
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
-                        msg_logger.debug("B")
+                        msg_logger.debug("B")  # TODO: delete me
                         greeting_start = msg.find(greeting)
                         net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
                                                                                                  errors='ignore')
-                        msg_logger.debug("C")
+                        msg_logger.debug("C")  # TODO: delete me
                         if net_id_from_eeprom == ARDAS_CONFIG['net_id']:
                             msg_logger.debug('start_sequence : Reply received from {}'.format(net_id_from_eeprom))
                         else:
