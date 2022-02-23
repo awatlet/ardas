@@ -266,7 +266,8 @@ def process_record(record):
             decoded_record += ' C'
             val = [0.] * n_channels
         for i in range(n_channels):
-            val[i] = sensors[i].output(freq[i])
+            sensors[i].value = freq[i]
+            val[i] = sensors[i].output()
             if raw_data:
                 decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
             else:
@@ -277,7 +278,7 @@ def process_record(record):
             cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
             for i in range(n_channels):
                 sens_out = '| %04d: ' % instr[i]
-                sens_out += sensors[i].output_repr(freq[i])
+                sens_out += sensors[i].output_repr()  # TODO : Add no eval to avoid running processing twice
                 sens_out += ' '
                 cal_record += sens_out
             cal_record += '|'
