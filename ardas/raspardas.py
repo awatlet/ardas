@@ -511,7 +511,7 @@ def start_sequence():
             master_queue.put(msg)
             msg_logger.debug('start_sequence : Calling all ArDAS')
             k = 10
-            sleep(0.75)
+            sleep(1.25)
             while k > 0 and not reply:
                 try:
                     msg_logger.debug('slave queue is empty ? ' + str(slave_queue.empty()))
