@@ -92,14 +92,19 @@ def load_sensor(sensor_id):
 
 class FMSensor(object):
     def __init__(self, sensor_id='0000', processing_method=polynomial, processing_parameters={'coefs': (0,1)},
-                 quantity='freq.', units='Hz', output_format='%11.4f', short_term_memory=1, log_output=True):
+                 quantity='freq.', units='Hz', output_format='%11.4f', short_term_memory=1, log_output=True,
+                 initial_values=None):
         self.__sensor_id = sensor_id
         self.processing_method = processing_method
         self.processing_parameters = processing_parameters
         self._value = np.empty((short_term_memory,1))
         self.short_term_memory = short_term_memory
-        self._value[:] = 0.
-        self._processed_value = -1.
+        if initial_values is None:
+            self._value[:] = 0.
+        else:
+            assert isinstance(initial_values, np.ndarray)
+            self._value = initial_values
+        self._processed_value = self.processing_method(self.value, **self.processing_parameters)
         self.quantity = quantity
         self.units = units
         self.output_format = output_format
