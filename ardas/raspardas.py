@@ -524,6 +524,7 @@ def start_sequence():
         while k > 0 and not reply:
             try:
                 msg_logger.debug('Slave queue approx. length:' + str(slave_queue.qsize()))
+                msg_logger.debug('Master queue approx. length:' + str(master_queue.qsize()))
                 msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
