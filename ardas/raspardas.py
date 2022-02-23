@@ -130,7 +130,7 @@ def init_logging():
         msg_logger.info('   logging output to influxDB: ' + repr(s.log))
         msg_logger.info('')
     try:
-        slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.1, bytesize=serial.EIGHTBITS,
+        slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.25, bytesize=serial.EIGHTBITS,
                                  parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
                                  dsrdtr=False, rtscts=False, xonxoff=False)
         sleep(1.0)
@@ -229,7 +229,7 @@ def listen_slave():
         except queue.Full:
             msg_logger.warning('*** Slave queue is full!')
         except serial.SerialTimeoutException:
-            pass
+            msg_logger.debug('listen_slave serial timeout!')
     msg_logger.debug('Closing listen_slave thread...')
 
 
