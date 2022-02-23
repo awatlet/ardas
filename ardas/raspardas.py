@@ -511,11 +511,11 @@ def start_sequence():
         master_queue.put(msg)
         msg_logger.debug('start_sequence : Calling all ArDAS')
         k = 10
-        sleep(0.75)
+        sleep(2.0)
         msg = b''
         while k > 0 and not reply:
             try:
-                msg += slave_queue.get(timeout=0.5)
+                msg += slave_queue.get(timeout=1.25)
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
