@@ -195,6 +195,8 @@ def listen_slave():
     msg = b''
     while byte != b'$' and byte != b'!':
         byte = slave_io.read(1)
+        msg_logger.debug('listen_slave reading byte' + byte.decode('ascii', errors='ignore'))
+    msg_logger.debug('listen_slave start byte found...')
     while not stop:
         # Read incoming data from slave (ArDAS)
         try:
