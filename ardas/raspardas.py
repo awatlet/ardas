@@ -536,7 +536,6 @@ def start_sequence():
                         greeting_start = msg.find(greeting)
                         net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
                                                                                                  errors='ignore')
-                        msg_logger.debug("C")  # TODO: delete me
                         if net_id_from_eeprom == ARDAS_CONFIG['net_id']:
                             msg_logger.debug('start_sequence : Reply received from {}'.format(net_id_from_eeprom))
                         else:
@@ -552,8 +551,8 @@ def start_sequence():
                         msg_logger.debug('start_sequence : No proper reply received yet...')
                 else:
                     msg_logger.debug('start_sequence : No message received yet...')
-            except queue.Empty:
-                msg_logger.debug('start_sequence : Timed out...')
+            except Exeception as e:  # queue.Empty:
+                msg_logger.debug('start_sequence : Timed out... %s' %e)
                 sleep(0.25)
                 k -= 1
 
