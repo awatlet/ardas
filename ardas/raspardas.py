@@ -519,10 +519,9 @@ def start_sequence():
         master_queue.put(msg)
         msg_logger.debug('start_sequence : Calling all ArDAS')
         k = 10
-        sleep(2.0)
+        sleep(5.0)
         msg = b''
         while k > 0 and not reply:
-            #try:
             if True:
                 msg_logger.debug('Slave queue approx. length:' + str(slave_queue.qsize()))
                 msg_logger.debug('Master queue approx. length:' + str(master_queue.qsize()))
@@ -552,10 +551,10 @@ def start_sequence():
                         msg_logger.debug('start_sequence : No proper reply received yet...')
                 else:
                     msg_logger.debug('start_sequence : No message received yet...')
-            #except Exception as e:  # queue.Empty:
-            #    msg_logger.debug('start_sequence : Timed out... x %s' %e)
-            #    sleep(0.25)
-            #    k -= 1
+            except queue.Empty:
+                msg_logger.debug('start_sequence : Timed out...')
+                sleep(0.25)
+                k -= 1
 
     reply = False
     while not reply:
