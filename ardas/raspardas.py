@@ -395,11 +395,11 @@ def listen_master():
                         msg_logger.warning('*** listen_master thread - Unable to decode master message: %s ...' % e)
                     event_args = ''
                     if msg[:-1] == b'#XB':
-                        msg_logger.info('Full download is not available')
+                        msg_logger.info('Full download request.')
                     elif msg[:-1] == b'#XP':
-                        msg_logger.info('Partial download request')
+                        msg_logger.info('Partial download request.')
                     elif msg[:-1] == b'#XS':
-                        msg_logger.info('Aborting download request')
+                        msg_logger.info('Aborting download request.')
                     elif msg[:-1] == b'#ZF':
                         msg_logger.info('Reset request')
                     elif msg[:3] == b'#PA':
