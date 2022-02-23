@@ -70,7 +70,9 @@ def open_valve_if_full(x, **kwargs):
     safe_pins = kwargs.pop('safe_pins', (12))
     logging.debug('Sensor freq. :' + ', '.join([str(i[0]) for i in x]) + 'Hz')
     empty_dict = {}
-    if eval(str('not (' + x[-2] + condition + ') and (' + x[-1] + condition + ')')):
+    cond = str('not (' + x[-2] + condition + ') and (' + x[-1] + condition + ')')
+    logging.debug('Condition: '+ cond)
+    if eval(cond):
         activate_pin(pin, delay, safe_pins)
         status = 1
     return status
@@ -97,6 +99,7 @@ class FMSensor(object):
         self._value = np.empty((short_term_memory,1))
         self.short_term_memory = short_term_memory
         self._value[:] = 0.
+        self._processed_value = -1.
         self.quantity = quantity
         self.units = units
         self.output_format = output_format
@@ -123,6 +126,7 @@ class FMSensor(object):
         assert isinstance(val, float)
         self._value = np.roll(self._value, -1)
         self._value[-1] = val
+        self._processed_value = self.processing_method(self.value, **self.processing_parameters)
 
 
     @property
@@ -135,33 +139,25 @@ class FMSensor(object):
     def units(self, val):
         self.__units = val
 
-    def output(self, value=None):
+    def output(self):
         """Outputs an output computed using the processing method and parameters
 
         :return: processed quantity
         :rtype: float
         """
 
-        if value is None:
-            value = self.value
-        else:
-            assert isinstance(value, np.ndarray)
-        output = self.processing_method(value, **self.processing_parameters)
-        return output
+        return self._processed_value
 
-    def output_repr(self, value=None):
+    def output_repr(self):
         """Gets a representation of the output
 
-        :param value: a numpy array of values
         :return: representation of the processed quantity
         :rtype: string
         """
 
-        if value is None:
-            value = self.value
         try:
             s = self.output_format + ' ' + self.units
-            calibrated_output = s % self.output(value)
+            calibrated_output = s % self.output()
         except Exception as e:
             calibrated_output = '*** error : %s ***' % e
         assert isinstance(calibrated_output, str)
