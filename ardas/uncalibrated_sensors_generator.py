@@ -8,5 +8,6 @@ sensors = (st.UncalibratedFMSensor(sensor_id='0001', log_output=True),
 
 if __name__ == '__main__':
     for s in sensors:
-        print(s.sensor_id + ' - ' + s.quantity + ' : ' + s.output_repr(10000))
+        s.value = 10000.
+        print(s.sensor_id + ' - ' + s.quantity + ' : ' + s.output_repr())
         s.save()
