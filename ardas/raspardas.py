@@ -552,7 +552,7 @@ def start_sequence():
                 else:
                     msg_logger.debug('start_sequence : No message received yet...')
             except Exception as e:  # queue.Empty:
-                msg_logger.debug('start_sequence : Timed out... %s' %e)
+                msg_logger.debug('start_sequence : Timed out... x %s' %e)
                 sleep(0.25)
                 k -= 1
 
