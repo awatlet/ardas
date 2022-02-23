@@ -563,6 +563,7 @@ def start_sequence():
         msg += bytes(str(n_channels).encode('ascii'))
         msg += b' '
         for i in SENSORS:
+            print("@@@@@@@@@@ Sensor @@@@@@@@@@@" + i.sensor_id)
             msg += bytes(i.sensor_id.encode('ascii'))
             msg += b' '
         msg += b'31\r'
