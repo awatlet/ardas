@@ -193,7 +193,7 @@ def listen_slave():
     msg_logger.debug('Initiating listen_slave thread...')
     byte = b''
     msg = b''
-    while byte != b'$':
+    while byte != b'$' and byte != b'!':
         byte = slave_io.read(1)
     while not stop:
         # Read incoming data from slave (ArDAS)
