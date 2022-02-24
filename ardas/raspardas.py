@@ -504,7 +504,7 @@ def talk_master():
             except Exception as e:
                 msg_logger.warning('Master connection lost: %s' % e)
                 master_online = False
-        sleep(0.95)
+        sleep(0.25)
     msg_logger.debug('Closing talk_master thread...')
 
 
