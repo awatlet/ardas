@@ -33,6 +33,7 @@ if not path.isdir(data_path):
     mkdir(data_path)
 data_log_filename = path.join(data_path, 'data_log')
 data_logger = logging.getLogger('data_logger')
+mqtt_data_logger = loggind.getLogger('data_logger')
 
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
@@ -80,7 +81,8 @@ mqtt_settings.update({'topic': MQTT_LOGGING_CONFIG['data_topic']})
 mqtt_data_handler = MQTTHandler(**mqtt_settings)
 mqtt_data_handler.setLevel(DATA_LOGGING_CONFIG['logging_level'])
 mqtt_data_handler.setFormatter(data_formatter)
-data_logger.addHandler(mqtt_data_handler)
+mqtt_data_logger.setLever(logging.INFO)
+mqtt_data_logger.addHandler(mqtt_data_handler)
 
 
 ##################
@@ -323,7 +325,7 @@ def process_record(record):
                                  'fields': {'value': val[i]}})
             msg_logger.debug('Seding data to MQTT : %s' % str(data))
             # client.write_points(data)
-            data_logger.info(data)
+            mqtt_data_logger.info(data)
     else:
         msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 
