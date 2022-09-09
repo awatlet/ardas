@@ -171,26 +171,27 @@ def init_logging():
     msg_logger.info('Saving data to ' + data_log_filename)
     msg_logger.info('Raw data in data log files and remote connections: ' + str(raw_data))
 
-    if influxdb_logging:
-        try:
-            msg_logger.info('Logging to database: %s' % DATABASE['dbname'])
-            client = InfluxDBClient(DATABASE['host'], DATABASE['port'], DATABASE['user'], DATABASE['password'],
-                                    DATABASE['dbname'])
-            title = 'rasparadas (re)started'
-            try:
-                with open(path.join(log_path, 'restart_msg.txt'), 'rt') as f:
-                    l = f.readlines()
-                text = ''.join(l)[:-1]
-                with open(path.join(log_path, 'restart_msg.txt'), 'wt') as f:
-                    f.truncate()
-            except Exception as e:
-                msg_logger.error('Unable to read restart_msg.txt: %s' % e)
-            influxdb_log_event(influxdb_client=client, title=title,
-                               default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
-                                            ARDAS_CONFIG['shield_id'] + ',' + 'start',
-                               event_args=text, msg_logger=msg_logger)
-        except Exception as e:
-            msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
+    # TODO: Configure the logging via MQTT
+    # if influxdb_logging:
+    #     try:
+    #         msg_logger.info('Logging to database: %s' % DATABASE['dbname'])
+    #         client = InfluxDBClient(DATABASE['host'], DATABASE['port'], DATABASE['user'], DATABASE['password'],
+    #                                 DATABASE['dbname'])
+    #         title = 'rasparadas (re)started'
+    #         try:
+    #             with open(path.join(log_path, 'restart_msg.txt'), 'rt') as f:
+    #                 l = f.readlines()
+    #             text = ''.join(l)[:-1]
+    #             with open(path.join(log_path, 'restart_msg.txt'), 'wt') as f:
+    #                 f.truncate()
+    #         except Exception as e:
+    #             msg_logger.error('Unable to read restart_msg.txt: %s' % e)
+    #         influxdb_log_event(influxdb_client=client, title=title,
+    #                            default_tags='net_id: ' + ARDAS_CONFIG['net_id'] + ',' + 'shield_id: ' +
+    #                                         ARDAS_CONFIG['shield_id'] + ',' + 'start',
+    #                            event_args=text, msg_logger=msg_logger)
+    #     except Exception as e:
+    #         msg_logger.error('*** Unable to log to database %s: %s' % (DATABASE['dbname'], e))
 
     if raw_data:
         s = 'Raw data (not calibrated) will be stored in data logs...'
