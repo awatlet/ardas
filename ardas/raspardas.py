@@ -107,7 +107,7 @@ starting = True
 stop = False
 
 slave_queue = queue.Queue()  # what comes from ArDAS
-master_queue = queue.Queue()  # what comes from Master (e.g. cron task running client2.py)
+master_queue = queue.Queue()  # what comes from Master
 
 # Remaining initialization
 status = True
@@ -149,7 +149,7 @@ def init_logging():
         msg_logger.info('   logging output to influxDB: ' + repr(s.log))
         msg_logger.info('')
     try:
-        slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.1, bytesize=serial.EIGHTBITS,
+        slave_io = serial.Serial(ARDAS_CONFIG['tty'], baudrate=57600, timeout=0.25, bytesize=serial.EIGHTBITS,
                                  parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,
                                  dsrdtr=False, rtscts=False, xonxoff=False)
         sleep(1.0)
@@ -212,8 +212,10 @@ def listen_slave():
     msg_logger.debug('Initiating listen_slave thread...')
     byte = b''
     msg = b''
-    while byte != b'$':
+    while byte != b'$' and byte != b'!':
         byte = slave_io.read(1)
+        msg_logger.debug('listen_slave reading byte' + byte.decode('ascii', errors='ignore'))
+    msg_logger.debug('listen_slave start byte found...')
     while not stop:
         # Read incoming data from slave (ArDAS)
         try:
@@ -248,7 +250,7 @@ def listen_slave():
         except queue.Full:
             msg_logger.warning('*** Slave queue is full!')
         except serial.SerialTimeoutException:
-            pass
+            msg_logger.debug('listen_slave serial timeout!')
     msg_logger.debug('Closing listen_slave thread...')
 
 
@@ -286,7 +288,8 @@ def process_record(record):
             decoded_record += ' C'
             val = [0.] * n_channels
         for i in range(n_channels):
-            val[i] = sensors[i].output(freq[i])
+            sensors[i].value = freq[i]
+            val[i] = sensors[i].output()
             if raw_data:
                 decoded_record += ' %04d %11.4f' % (instr[i], freq[i])
             else:
@@ -297,7 +300,7 @@ def process_record(record):
             cal_record = '%04d ' % station + record_date.strftime('%Y %m %d %H %M %S')
             for i in range(n_channels):
                 sens_out = '| %04d: ' % instr[i]
-                sens_out += sensors[i].output_repr(freq[i])
+                sens_out += sensors[i].output_repr()  # TODO : Add no eval to avoid running processing twice
                 sens_out += ' '
                 cal_record += sens_out
             cal_record += '|'
@@ -336,7 +339,7 @@ def talk_slave():
     msg_logger.debug('Initiating talk_slave thread...')
     while not stop:
         try:
-            msg = master_queue.get(timeout=1)
+            msg = master_queue.get(timeout=1.)
             try:
                 msg_logger.debug('Saying to slave : ' + msg.decode('ascii')[:-1])
             except Exception as e:
@@ -345,11 +348,11 @@ def talk_slave():
             # msg_logger.debug('Out waiting: ' + str(slave_io.out_waiting))
             msg_logger.debug('writing to slave...')
             slave_io.write(msg)
-            # msg_logger.debug('In waiting after: ' + str(slave_io.in_waiting))
-            # msg_logger.debug('Out waiting after: ' + str(slave_io.out_waiting))
+            msg_logger.debug('In waiting after: ' + str(slave_io.in_waiting))
+            msg_logger.debug('Out waiting after: ' + str(slave_io.out_waiting))
             # slave_io.flush()  # NOTE: this line was commented as a test
         except queue.Empty:
-            pass
+            msg_logger.debug('talk_slave : master_queue empty...')
         except serial.SerialTimeoutException:
             msg_logger.error('*** Could not talk to slave...')
         except Exception as err:
@@ -521,7 +524,7 @@ def talk_master():
             except Exception as e:
                 msg_logger.warning('Master connection lost: %s' % e)
                 master_online = False
-        sleep(0.95)
+        sleep(0.25)
     msg_logger.debug('Closing talk_master thread...')
 
 
@@ -538,14 +541,20 @@ def start_sequence():
         master_queue.put(msg)
         msg_logger.debug('start_sequence : Calling all ArDAS')
         k = 10
-        sleep(0.75)
+        sleep(5.0)
         msg = b''
         while k > 0 and not reply:
             try:
-                msg += slave_queue.get(timeout=0.5)
+                msg_logger.debug('Slave queue approx. length:' + str(slave_queue.qsize()))
+                msg_logger.debug('Master queue approx. length:' + str(master_queue.qsize()))
+                incoming = slave_queue.get(timeout=1.25)
+                msg_logger.debug('incoming: %s' % incoming.decode('ascii', errors='ignore'))
+                msg += incoming
                 msg_logger.debug('received reply: %s' % msg.decode('ascii', errors='ignore'))
                 if msg != b'':
+                    msg_logger.debug('A')  # TODO: delete me
                     if (greeting in msg) and (len(msg) >= msg.find(greeting) + 19):
+                        msg_logger.debug("B")  # TODO: delete me
                         greeting_start = msg.find(greeting)
                         net_id_from_eeprom = msg[greeting_start + 16:greeting_start + 19].decode('ascii',
                                                                                                  errors='ignore')

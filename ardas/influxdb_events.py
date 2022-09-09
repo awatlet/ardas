@@ -9,7 +9,6 @@ from ardas.settings import DATABASE, DATA_LOGGING_CONFIG, LOGGING_CONFIG
 
 def influxdb_log_event(influxdb_client, title, default_tags, event_args,  msg_logger):
     """ Log an event in the influxdb series
-
     :param influxdb_client:
     :param title:
     :param default_tags:
@@ -50,7 +49,6 @@ def influxdb_log_event(influxdb_client, title, default_tags, event_args,  msg_lo
 
 def influxdb_clean_events(influxdb_client, msg_logger):
     """ Erase all events in influxdb series
-
     :param influxdb_client:
     :param msg_logger:
     :return:
@@ -72,7 +70,6 @@ def influxdb_clean_events(influxdb_client, msg_logger):
 
 def decode_event_args(event_args, default_tags='message'):
     """ Decodes event arguments of the type [comment text] [-tags tag1 tag2 ...] [-datetime YYYY mm dd HH MM SS]
-
     :param event_args: string that contain the event arguments
     :param default_tags: comma separated default tags to add to tags given in arguments
     :return: a dict of
