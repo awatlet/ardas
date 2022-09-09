@@ -9,11 +9,12 @@ from struct import unpack_from
 from threading import Thread
 import ntplib
 import serial
-from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG, DATA_LOGGING_CONFIG
+from ardas.settings import DATABASE, ARDAS_CONFIG, SENSORS, MASTER_CONFIG, LOGGING_CONFIG, DATA_LOGGING_CONFIG, MQTT_LOGGING_CONFIG
 from influxdb import InfluxDBClient
 from ardas.compressed_sized_timed_rotating_logger import CompressedSizedTimedRotatingFileHandler
 from ardas.influxdb_events import influxdb_log_event
 from ardas.get_git_version import get_version
+from mqtt_logger import MQTTHandler
 
 version = get_version()
 
@@ -65,6 +66,24 @@ data_handler = CompressedSizedTimedRotatingFileHandler(data_log_filename,
                                                        when=DATA_LOGGING_CONFIG['when'],
                                                        interval=DATA_LOGGING_CONFIG['interval'])
 data_logger.addHandler(data_handler)
+
+# Set MQTT data logging level and handler
+
+##################
+data_formatter = logging.Formatter(log_format)
+data_formatter.converter = gmtime
+data_formatter.datefmt = '%Y/%m/%d %H:%M:%S UTC'
+
+mqtt_settings = MQTT_LOGGING_CONFIG.copy()
+[mqtt_settings.pop(i) for i in ['client_id', 'exec_topic', 'data_topic', 'soh_topic']]
+mqtt_settings.update({'topic': MQTT_LOGGING_CONFIG['data_topic']})
+mqtt_data_handler = MQTTHandler(**mqtt_settings)
+mqtt_data_handler.setLevel(DATA_LOGGING_CONFIG['logging_level'])
+mqtt_data_handler.setFormatter(data_formatter)
+data_logger.addHandler(mqtt_data_handler)
+
+
+##################
 
 influxdb_logging = DATA_LOGGING_CONFIG['influxdb_logging']
 client = None
@@ -298,8 +317,9 @@ def process_record(record):
                                           'shield_id': '%s' % (ARDAS_CONFIG['shield_id'])},
                                  'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                  'fields': {'value': val[i]}})
-            msg_logger.debug('Writing to InfluxDB : %s' % str(data))
-            client.write_points(data)
+            msg_logger.debug('Seding data to MQTT : %s' % str(data))
+            # client.write_points(data)
+            data_logger.info(data)
     else:
         msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 
