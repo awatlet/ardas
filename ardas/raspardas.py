@@ -81,7 +81,7 @@ mqtt_settings.update({'topic': MQTT_LOGGING_CONFIG['data_topic']})
 mqtt_data_handler = MQTTHandler(**mqtt_settings)
 mqtt_data_handler.setLevel(DATA_LOGGING_CONFIG['logging_level'])
 mqtt_data_handler.setFormatter(data_formatter)
-mqtt_data_logger.setLever(logging.INFO)
+mqtt_data_logger.setLevel(logging.INFO)
 mqtt_data_logger.addHandler(mqtt_data_handler)
 
 
