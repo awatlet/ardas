@@ -33,7 +33,7 @@ if not path.isdir(data_path):
     mkdir(data_path)
 data_log_filename = path.join(data_path, 'data_log')
 data_logger = logging.getLogger('data_logger')
-mqtt_data_logger = loggind.getLogger('data_logger')
+mqtt_data_logger = logging.getLogger('data_logger')
 
 # Debug and logging
 debug = LOGGING_CONFIG['debug_mode']
