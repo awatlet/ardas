@@ -279,8 +279,8 @@ def process_record(record):
         freq = []
         station = int.from_bytes(record[1:3], 'big')
         integration_period = int.from_bytes(record[3:5], 'big')
-        record_date = int.from_bytes(record[5:9], 'big')
-        #record_date = datetime.datetime.utcfromtimestamp(int.from_bytes(record[5:9], 'big'))
+        record_date_timestamp = int.from_bytes(record[5:9], 'big')
+        record_date = datetime.datetime.utcfromtimestamp(int.from_bytes(record[5:9], 'big'))
         # record_date = record_date.replace(tzinfo=datetime.timezone.utc)
         for i in range(n_channels):
             instr.append(int.from_bytes(record[9 + 2 * i:11 + 2 * i], 'big'))
@@ -324,7 +324,7 @@ def process_record(record):
                                  'tags': {'sensor': '%s-%04d' % (ARDAS_CONFIG['net_id'], instr[i]),
                                           'shield_id': '%s' % (ARDAS_CONFIG['shield_id'])},
                                  #'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
-                                 'time': record_date,
+                                 'time': record_date_timestamp,
                                  'fields': {'value': val[i]}})
             msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
