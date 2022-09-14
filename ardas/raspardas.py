@@ -320,12 +320,12 @@ def process_record(record):
             data = []
             for i in range(n_channels):
                 if sensors[i].log:
-                    data.append({'measurement': DATABASE['series'],
-                                 'tags': {'sensor': '%s-%04d' % (ARDAS_CONFIG['net_id'], instr[i]),
-                                          'shield_id': '%s' % (ARDAS_CONFIG['shield_id'])},
+                    data.append({"measurement": DATABASE['series'],
+                                 "tags": {"sensor": "%s-%04d" % (ARDAS_CONFIG['net_id'], instr[i]),
+                                          "shield_id": "%s" % (ARDAS_CONFIG['shield_id'])},
                                  #'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
-                                 'time': record_date_timestamp,
-                                 'fields': {'value': val[i]}})
+                                 "time": record_date_timestamp,
+                                 "fields": {"value": val[i]}})
             msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
             mqtt_data_logger.info(data[0])
