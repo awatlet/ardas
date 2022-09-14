@@ -3,6 +3,7 @@ import datetime
 import logging
 import queue
 import socket
+import json
 from time import gmtime, sleep
 from os import path, mkdir, statvfs
 from struct import unpack_from
@@ -328,7 +329,7 @@ def process_record(record):
                                  "fields": {"value": val[i]}})
             msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
-            mqtt_data_logger.info(data[0])
+            mqtt_data_logger.info(json.dumps(data[0]))
     else:
         msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 
