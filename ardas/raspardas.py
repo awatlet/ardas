@@ -279,7 +279,8 @@ def process_record(record):
         freq = []
         station = int.from_bytes(record[1:3], 'big')
         integration_period = int.from_bytes(record[3:5], 'big')
-        record_date = datetime.datetime.utcfromtimestamp(int.from_bytes(record[5:9], 'big'))
+        record_date = int.from_bytes(record[5:9], 'big')
+        #record_date = datetime.datetime.utcfromtimestamp(int.from_bytes(record[5:9], 'big'))
         # record_date = record_date.replace(tzinfo=datetime.timezone.utc)
         for i in range(n_channels):
             instr.append(int.from_bytes(record[9 + 2 * i:11 + 2 * i], 'big'))
