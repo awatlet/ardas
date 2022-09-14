@@ -322,7 +322,8 @@ def process_record(record):
                     data.append({'measurement': DATABASE['series'],
                                  'tags': {'sensor': '%s-%04d' % (ARDAS_CONFIG['net_id'], instr[i]),
                                           'shield_id': '%s' % (ARDAS_CONFIG['shield_id'])},
-                                 'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
+                                 #'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
+                                 'time': record_date,
                                  'fields': {'value': val[i]}})
             msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
