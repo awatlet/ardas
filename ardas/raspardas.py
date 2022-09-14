@@ -44,6 +44,7 @@ else:
 
 # Set message logging format and level
 log_format = '%(asctime)-15s | %(process)d | %(levelname)s: %(message)s'
+data_format = '%(message)s'
 logging_to_console = LOGGING_CONFIG['logging_to_console']
 msg_handler = CompressedSizedTimedRotatingFileHandler(log_file, max_bytes=LOGGING_CONFIG['max_bytes'],
                                                       backup_count=LOGGING_CONFIG['backup_count'],
@@ -71,7 +72,7 @@ data_logger.addHandler(data_handler)
 # Set MQTT data logging level and handler
 
 ##################
-data_formatter = logging.Formatter(log_format)
+data_formatter = logging.Formatter(data_format)
 data_formatter.converter = gmtime
 data_formatter.datefmt = '%Y/%m/%d %H:%M:%S UTC'
 
@@ -323,7 +324,7 @@ def process_record(record):
                                           'shield_id': '%s' % (ARDAS_CONFIG['shield_id'])},
                                  'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                  'fields': {'value': val[i]}})
-            msg_logger.debug('Seding data to MQTT : %s' % str(data))
+            msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
             mqtt_data_logger.info(data)
     else:
