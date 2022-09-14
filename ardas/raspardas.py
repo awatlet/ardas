@@ -89,7 +89,7 @@ mqtt_data_logger.addHandler(mqtt_data_handler)
 
 ##################
 
-influxdb_logging = DATA_LOGGING_CONFIG['influxdb_logging']
+mqtt_logging = DATA_LOGGING_CONFIG['influxdb_logging']
 client = None
 
 # Connection to master
@@ -260,7 +260,7 @@ def listen_slave():
 
 
 def process_record(record):
-    global n_channels, slave_queue, raw_data, influxdb_logging, master_online, pause, msg_logger, data_logger
+    global n_channels, slave_queue, raw_data, mqtt_logging, master_online, pause, msg_logger, data_logger
 
     sensors = SENSORS
 
@@ -317,7 +317,7 @@ def process_record(record):
                 slave_queue.put(cal_record.encode('utf-8'))
         elif master_online:
                 slave_queue.put(decoded_record.encode('utf-8'))
-        if influxdb_logging and not pause:
+        if mqtt_logging and not pause:
             data = []
             for i in range(n_channels):
                 if sensors[i].log:
@@ -329,7 +329,10 @@ def process_record(record):
                                  "fields": {"value": val[i]}})
             msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
-            mqtt_data_logger.info(json.dumps(data[0]))
+            try:
+                mqtt_data_logger.info(json.dumps(data[0]))
+            except:
+                print('Could not send data via MQTT')
     else:
         msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 

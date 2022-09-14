@@ -129,7 +129,7 @@ def decode_event_args(event_args, default_tags='message'):
 if __name__ == '__main__':
     stop = False
     influxdb_clean = False
-    influxdb_logging = DATA_LOGGING_CONFIG['influxdb_logging']
+    mqtt_logging = DATA_LOGGING_CONFIG['influxdb_logging']
     influxdb_client = None
 
     # setup loggers
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     msg_logger.addHandler(msg_handler)
     msg_logger.setLevel(logging_level)
 
-    if influxdb_logging:
+    if mqtt_logging:
         try:
             msg_logger.info('Connecting to database: %s' % DATABASE['dbname'])
             influxdb_client = InfluxDBClient(DATABASE['host'], DATABASE['port'], DATABASE['user'], DATABASE['password'],
