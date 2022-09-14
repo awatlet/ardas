@@ -327,7 +327,7 @@ def process_record(record):
                                  'fields': {'value': val[i]}})
             msg_logger.debug('Sending data to MQTT : %s' % str(data))
             # client.write_points(data)
-            mqtt_data_logger.info(data)
+            mqtt_data_logger.info(data[0])
     else:
         msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 
