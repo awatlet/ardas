@@ -327,12 +327,14 @@ def process_record(record):
                                  #'time': record_date.strftime('%Y-%m-%d %H:%M:%S %Z'),
                                  "time": record_date_timestamp,
                                  "fields": {"value": val[i]}})
-            msg_logger.debug('Sending data to MQTT : %s' % str(data))
+                    msg_logger.debug('Sending data to MQTT : %s' % str(data))
+                    try:
+                        mqtt_data_logger.info(json.dumps(data[-1]))
+                    except Exception as e:
+                        msg_logger.debug('Error:' + str(e) + '\n Could not send data via MQTT')
+
             # client.write_points(data)
-            try:
-                mqtt_data_logger.info(json.dumps(data[0]))
-            except Exception as e:
-                msg_logger.debug('Error:' + str(e) + '\n Could not send data via MQTT')
+
     else:
         msg_logger.warning('*** Bad crc : corrupted data is not stored !')
 
