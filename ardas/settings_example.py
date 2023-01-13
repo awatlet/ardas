@@ -1,4 +1,6 @@
 from ardas import sensor_tools as st
+import import paho.mqtt.client as mqtt
+import logging
 
 # connexion to InfluxDB
 DATABASE = {
@@ -48,6 +50,28 @@ DATA_LOGGING_CONFIG ={
     'when': 'd',
     'interval': 1,
     'influxdb_logging': True
+}
+
+
+# MQTT logging config
+MQTT_LOGGING_CONFIG = {
+    'hostname': '',
+    'port': 1883,
+    'qos': 2,
+    'retain': False,
+    'keepalive': 60,
+    'will': None,
+    'auth': { 
+        'username': '',
+        'password': ''
+    },
+    'tls': None,
+    'protocol': MQTTv31,
+    'transport': 'tcp',
+    'client_id': ARDAS_CONFIG["station"] + '-' + ARDAS_CONFIG["shield_id"],
+    'exec_topic': 'ardas_' + ARDAS_CONFIG["station"] + '-' + ARDAS_CONFIG["shield_id"] + '/exec',
+    'data_topic': 'ardas_' + ARDAS_CONFIG["station"] + '-' + ARDAS_CONFIG["shield_id"] + '/data',
+    'soh_topic': 'ardas_' + ARDAS_CONFIG["station"] + '-' + ARDAS_CONFIG["shield_id"] + '/soh'
 }
 
 # parameters to push code to raspberry via sftp_transfer.py
