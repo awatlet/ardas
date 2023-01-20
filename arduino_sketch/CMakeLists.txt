@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/ArduinoToolchain.cmake)
 set(PROJECT_NAME ardas)
+set(CMAKE_CXX_STANDARD 11)
 project(${PROJECT_NAME})
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
